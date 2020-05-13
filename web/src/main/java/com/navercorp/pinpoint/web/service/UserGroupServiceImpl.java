@@ -15,22 +15,24 @@
  */
 package com.navercorp.pinpoint.web.service;
 
-import java.util.List;
-
+import com.navercorp.pinpoint.common.util.CollectionUtils;
 import com.navercorp.pinpoint.web.config.ConfigProperties;
+import com.navercorp.pinpoint.web.dao.UserGroupDao;
 import com.navercorp.pinpoint.web.util.DefaultUserInfoDecoder;
 import com.navercorp.pinpoint.web.util.UserInfoDecoder;
 import com.navercorp.pinpoint.web.vo.User;
-import com.navercorp.pinpoint.web.vo.UserGroupMemberParam;
-import com.navercorp.pinpoint.web.vo.exception.PinpointUserGroupException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.navercorp.pinpoint.web.dao.UserGroupDao;
 import com.navercorp.pinpoint.web.vo.UserGroup;
 import com.navercorp.pinpoint.web.vo.UserGroupMember;
+import com.navercorp.pinpoint.web.vo.UserPhoneInfo;
+import com.navercorp.pinpoint.web.vo.exception.PinpointUserGroupException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @author minwoo.jung
@@ -39,25 +41,34 @@ import org.springframework.util.StringUtils;
 @Transactional(rollbackFor = {Exception.class})
 public class UserGroupServiceImpl implements UserGroupService {
 
-    @Autowired
-    UserGroupDao userGroupDao;
+    private final UserGroupDao userGroupDao;
 
-    @Autowired(required = false)
-    UserInfoDecoder userInfoDecoder = DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER;
+    private final UserInfoDecoder userInfoDecoder;
 
-    @Autowired
-    AlarmService alarmService;
+    private final AlarmService alarmService;
 
-    @Autowired
-    private ConfigProperties webProperties;
+    private final ConfigProperties webProperties;
 
+    private final UserService userService;
 
-    
+    public UserGroupServiceImpl(UserGroupDao userGroupDao, Optional<UserInfoDecoder> userInfoDecoder, AlarmService alarmService, ConfigProperties webProperties, UserService userService) {
+        this.userGroupDao = Objects.requireNonNull(userGroupDao, "userGroupDao");
+        this.userInfoDecoder = Objects.requireNonNull(userInfoDecoder, "userInfoDecoder").orElse(DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER);
+        this.alarmService = Objects.requireNonNull(alarmService, "alarmService");
+        this.webProperties = Objects.requireNonNull(webProperties, "webProperties");
+        this.userService = Objects.requireNonNull(userService, "userService");
+    }
+
     @Override
-    public String createUserGroup(UserGroup userGroup, String userId) throws PinpointUserGroupException {
+    public String createUserGroup(UserGroup userGroup) throws PinpointUserGroupException {
+        if (userGroupDao.isExistUserGroup(userGroup.getId())) {
+            throw new PinpointUserGroupException("userGroup's name already exist. :" + userGroup.getId());
+        }
+
         String userGroupNumber = userGroupDao.createUserGroup(userGroup);
 
         if (webProperties.isOpenSource() == false) {
+            String userId = userService.getUserIdFromSecurity();
             if (StringUtils.isEmpty(userId)) {
                 throw new PinpointUserGroupException("There is not userId or fail to create userGroup.");
             }
@@ -92,19 +103,14 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
-    public void deleteUserGroup(UserGroup userGroup, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            if (checkValid(userId, userGroup.getId()) == false) {
-                throw new PinpointUserGroupException("There is not userId or you don't have authoriy for user group.");
-            }
-        }
-
+    public void deleteUserGroup(UserGroup userGroup) throws PinpointUserGroupException {
         userGroupDao.deleteUserGroup(userGroup);
-        deleteMemberByUserGroupId(userGroup.getId());
+        userGroupDao.deleteMemberByUserGroupId(userGroup.getId());
         alarmService.deleteRuleByUserGroupId(userGroup.getId());
     }
 
-    private boolean checkValid(String userId, String userGroupId) {
+    @Transactional(readOnly = true)
+    public boolean checkValid(String userId, String userGroupId) {
         if (StringUtils.isEmpty(userId)) {
             return false;
         }
@@ -118,31 +124,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     @Override
     public void insertMember(UserGroupMember userGroupMember) {
         userGroupDao.insertMember(userGroupMember);
-    }
-
-    @Override
-    public void insertMemberWithCheckAuthority(UserGroupMemberParam userGroupMember, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            boolean isValid = checkValid(userId, userGroupMember.getUserGroupId());
-            if (isValid == false) {
-                throw new PinpointUserGroupException("there is not userId or you don't have authority for user group.");
-            }
-        }
-
-        insertMember(userGroupMember);
-    }
-
-
-    @Override
-    public void deleteMemberWithCheckAuthority(UserGroupMember userGroupMember, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            boolean isValid = checkValid(userId, userGroupMember.getUserGroupId());
-            if (isValid == false) {
-                throw new PinpointUserGroupException("there is not userId or you don't have authority for user group.");
-            }
-        }
-
-        userGroupDao.deleteMember(userGroupMember);
     }
 
     @Override
@@ -176,13 +157,33 @@ public class UserGroupServiceImpl implements UserGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> selectEmailOfMember(String userGroupId) {
-        return userGroupDao.selectEmailOfMember(userGroupId);
+    public List<UserPhoneInfo> selectPhoneInfoOfMember(String userGroupId) {
+        final List<UserPhoneInfo> userPhoneInfoList = userGroupDao.selectPhoneInfoOfMember(userGroupId);
+
+        if (CollectionUtils.isEmpty(userPhoneInfoList)) {
+            return userPhoneInfoList;
+        }
+
+        if (DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER.equals(userInfoDecoder)) {
+            return userPhoneInfoList;
+        }
+
+
+        List<UserPhoneInfo> convertedUserPhoneInfoList = new ArrayList<>(userPhoneInfoList.size());
+
+        for (UserPhoneInfo userPhoneInfo : userPhoneInfoList) {
+            String decodedPhoneNumber = userInfoDecoder.decodePhoneNumber(userPhoneInfo.getPhoneNumber());
+            String phoneNumber = User.removeHyphenForPhoneNumber(decodedPhoneNumber);
+            convertedUserPhoneInfoList.add(new UserPhoneInfo(userPhoneInfo.getPhoneCountryCode(), phoneNumber));
+        }
+
+        return convertedUserPhoneInfoList;
     }
 
     @Override
-    public void deleteMemberByUserGroupId(String userGroupId) {
-        userGroupDao.deleteMemberByUserGroupId(userGroupId);
+    @Transactional(readOnly = true)
+    public List<String> selectEmailOfMember(String userGroupId) {
+        return userGroupDao.selectEmailOfMember(userGroupId);
     }
 
     @Override
@@ -190,9 +191,7 @@ public class UserGroupServiceImpl implements UserGroupService {
         userGroupDao.updateUserGroupIdOfMember(userGroup);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public boolean containMemberForUserGroup(String userId, String userGroupId) {
+    private boolean containMemberForUserGroup(String userId, String userGroupId) {
         List<UserGroupMember> memberList = userGroupDao.selectMember(userGroupId);
         for (UserGroupMember member : memberList) {
             if(member.getMemberId().equals(userId)) {

@@ -32,4 +32,8 @@ public final class JacksonConstants {
     public static final ServiceType SERVICE_TYPE = ServiceTypeFactory.of(5011, "JACKSON");
 
     public static final AnnotationKey ANNOTATION_KEY_LENGTH_VALUE = AnnotationKeyFactory.of(9001, "jackson.json.length");
+
+
+    public static final String JACKSON_SCOPE = "JACKSON_OBJECTMAPPER_SCOPE";
+
 }

@@ -18,6 +18,7 @@ package com.navercorp.pinpoint.profiler.sender;
 
 import com.navercorp.pinpoint.common.util.Assert;
 import com.navercorp.pinpoint.profiler.context.thrift.MessageConverter;
+import com.navercorp.pinpoint.common.util.IOUtils;
 import com.navercorp.pinpoint.rpc.PinpointSocketException;
 import com.navercorp.pinpoint.rpc.buffer.ByteBufferFactory;
 import com.navercorp.pinpoint.rpc.buffer.ByteBufferFactoryLocator;
@@ -60,13 +61,13 @@ public class NioUDPDataSender implements DataSender {
 
     public NioUDPDataSender(String host, int port, String threadName, int queueSize, int timeout, int sendBufferSize,
                             MessageConverter<TBase<?, ?>> messageConverter) {
-        Assert.requireNonNull(host, "host must not be null");
-        Assert.requireNonNull(threadName, "threadName must not be null");
+        Assert.requireNonNull(host, "host");
+        Assert.requireNonNull(threadName, "threadName");
         Assert.isTrue(queueSize > 0, "queueSize");
         Assert.isTrue(timeout > 0, "timeout");
         Assert.isTrue(sendBufferSize > 0, "sendBufferSize");
 
-        this.messageConverter = Assert.requireNonNull(messageConverter, "messageConverter must not be null");
+        this.messageConverter = Assert.requireNonNull(messageConverter, "messageConverter");
 
         // TODO If fail to create socket, stop agent start
         logger.info("NioUDPDataSender initialized. host={}, port={}", host, port);
@@ -116,16 +117,8 @@ public class NioUDPDataSender implements DataSender {
 
             return datagramChannel;
         } catch (IOException e) {
-            if (socket != null) {
-                socket.close();
-            }
-
-            if (datagramChannel != null) {
-                try {
-                    datagramChannel.close();
-                } catch (IOException ignored) {
-                }
-            }
+            IOUtils.closeQuietly(socket);
+            IOUtils.closeQuietly(datagramChannel);
 
             throw new IllegalStateException("DatagramChannel create fail. Cause" + e.getMessage(), e);
         }

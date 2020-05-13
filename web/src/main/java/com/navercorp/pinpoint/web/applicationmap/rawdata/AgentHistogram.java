@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  *
@@ -42,17 +43,13 @@ public class AgentHistogram {
     private final Map<Long, TimeHistogram> timeHistogramMap;
 
     public AgentHistogram(Application agentId) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
-
-        this.agentId = agentId;
+        this.agentId = Objects.requireNonNull(agentId, "agentId");
         this.timeHistogramMap = new HashMap<>();
     }
 
     public AgentHistogram(AgentHistogram copyAgentHistogram) {
         if (copyAgentHistogram == null) {
-            throw new NullPointerException("copyAgentHistogram must not be null");
+            throw new NullPointerException("copyAgentHistogram");
         }
 
         this.agentId = copyAgentHistogram.agentId;
@@ -101,7 +98,7 @@ public class AgentHistogram {
 
     public void addTimeHistogram(Collection<TimeHistogram> histogramList) {
         if (histogramList == null) {
-            throw new NullPointerException("histogramList must not be null");
+            throw new NullPointerException("histogramList");
         }
         for (TimeHistogram timeHistogram : histogramList) {
             addTimeHistogram(timeHistogram);

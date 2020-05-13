@@ -32,7 +32,11 @@ import com.navercorp.pinpoint.common.trace.ServiceType;
  * @author emeroad
  * @author netspider
  * @author hyungil.jeong
+ *
+ * @deprecated As of 1.9.0, application type detection timing has been changed to plugins' setup time.
+ *             {@code ApplicationServerTypeResolver} should no longer be needed.
  */
+@Deprecated
 public class ApplicationServerTypeResolver {
     
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -43,7 +47,7 @@ public class ApplicationServerTypeResolver {
 
     public ApplicationServerTypeResolver(List<ApplicationTypeDetector> applicationTypeDetector, ServiceType defaultType, List<String> orderedDetectors) {
         if (applicationTypeDetector == null) {
-            throw new NullPointerException("applicationTypeDetector must not be null");
+            throw new NullPointerException("applicationTypeDetector");
         }
 
         if (isValidApplicationServerType(defaultType)) {

@@ -17,8 +17,13 @@
 
 package com.navercorp.pinpoint.test.plugin;
 
+import com.navercorp.pinpoint.test.plugin.util.FileUtils;
+
+import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.List;
 
 /**
  * @author Woonduk Kang(emeroad)
@@ -33,11 +38,27 @@ public class PluginTestClassLoader extends URLClassLoader {
         super(urls);
     }
 
-
-
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
         // override for debugging
         return super.loadClass(name);
     }
+
+    public static ClassLoader getClassLoader(List<File> fileList) {
+        URL[] urlList = getUrlList(fileList);
+        return new PluginTestClassLoader(urlList);
+    }
+
+    private static URL[] getUrlList(List<File> fileList)  {
+        if (fileList == null) {
+            return new URL[0];
+        }
+        try {
+            final File[] files = fileList.toArray(new File[0]);
+            return FileUtils.toURLs(files);
+        } catch (IOException e) {
+            throw new RuntimeException(e. getMessage(), e);
+        }
+    }
+
 }

@@ -16,11 +16,12 @@
 package com.navercorp.pinpoint.web.dao.hbase;
 
 import com.navercorp.pinpoint.common.server.bo.codec.stat.join.ResponseTimeDecoder;
+import com.navercorp.pinpoint.common.server.bo.stat.join.JoinResponseTimeBo;
 import com.navercorp.pinpoint.common.server.bo.stat.join.StatType;
 import com.navercorp.pinpoint.web.dao.ApplicationResponseTimeDao;
 import com.navercorp.pinpoint.web.mapper.stat.ApplicationStatMapper;
 import com.navercorp.pinpoint.web.mapper.stat.SampledApplicationStatResultExtractor;
-import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.JoinResponseTimeSampler;
+import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.ApplicationStatSampler;
 import com.navercorp.pinpoint.web.util.TimeWindow;
 import com.navercorp.pinpoint.web.vo.Range;
 import com.navercorp.pinpoint.web.vo.stat.AggreJoinResponseTimeBo;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author minwoo.jung
@@ -37,14 +39,17 @@ import java.util.List;
 @Repository
 public class HbaseApplicationResponseTimeDao implements ApplicationResponseTimeDao {
 
-    @Autowired
-    private ResponseTimeDecoder responseTimeDecoder;
+    private final ResponseTimeDecoder responseTimeDecoder;
 
-    @Autowired
-    private JoinResponseTimeSampler joinResponseTimeSampler;
+    private final ApplicationStatSampler<JoinResponseTimeBo> joinResponseTimeSampler;
 
-    @Autowired
-    private HbaseApplicationStatDaoOperations operations;
+    private final HbaseApplicationStatDaoOperations operations;
+
+    public HbaseApplicationResponseTimeDao(ResponseTimeDecoder responseTimeDecoder, ApplicationStatSampler<JoinResponseTimeBo> joinResponseTimeSampler, HbaseApplicationStatDaoOperations operations) {
+        this.responseTimeDecoder = Objects.requireNonNull(responseTimeDecoder, "responseTimeDecoder");
+        this.joinResponseTimeSampler = Objects.requireNonNull(joinResponseTimeSampler, "joinResponseTimeSampler");
+        this.operations = Objects.requireNonNull(operations, "operations");
+    }
 
     @Override
     public List<AggreJoinResponseTimeBo> getApplicationStatList(String applicationId, TimeWindow timeWindow) {

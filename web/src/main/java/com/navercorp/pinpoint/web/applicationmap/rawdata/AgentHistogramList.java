@@ -41,9 +41,7 @@ public class AgentHistogramList {
     }
 
     public AgentHistogramList(Application application, List<ResponseTime> responseHistogramList) {
-        if (responseHistogramList == null) {
-            throw new NullPointerException("responseHistogramList must not be null");
-        }
+        Objects.requireNonNull(responseHistogramList, "responseHistogramList");
 
         for (ResponseTime responseTime : responseHistogramList) {
             for (Map.Entry<String, TimeHistogram> agentEntry : responseTime.getAgentHistogram()) {
@@ -55,23 +53,17 @@ public class AgentHistogramList {
 
 
     public void addTimeHistogram(Application agentId, Collection<TimeHistogram> histogramList) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
-        if (histogramList == null) {
-            throw new NullPointerException("histogramList must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
+        Objects.requireNonNull(histogramList, "histogramList");
+
         AgentHistogram agentHistogram = getAgentHistogram(agentId);
         agentHistogram.addTimeHistogram(histogramList);
     }
 
     public void addTimeHistogram(Application agentId, TimeHistogram timeHistogram) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
-        if (timeHistogram == null) {
-            throw new NullPointerException("timeHistogram must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
+        Objects.requireNonNull(timeHistogram, "timeHistogram");
+
         AgentHistogram agentHistogram = getAgentHistogram(agentId);
         agentHistogram.addTimeHistogram(timeHistogram);
     }
@@ -89,9 +81,7 @@ public class AgentHistogramList {
 
 
     private AgentHistogram getAgentHistogram(Application agentId) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
 
         AgentHistogram agentHistogram = agentHistogramMap.computeIfAbsent(agentId, k -> new AgentHistogram(agentId));
         return agentHistogram;
@@ -109,7 +99,7 @@ public class AgentHistogramList {
 
     public void addAgentHistogram(AgentHistogram agentHistogram) {
         if (agentHistogram == null) {
-            throw new NullPointerException("agentHistogram must not be null");
+            throw new NullPointerException("agentHistogram");
         }
         final String hostName = agentHistogram.getId();
         ServiceType serviceType = agentHistogram.getServiceType();
@@ -121,7 +111,7 @@ public class AgentHistogramList {
 
     public void addAgentHistogram(AgentHistogramList addAgentHistogramList) {
         if (addAgentHistogramList == null) {
-            throw new NullPointerException("agentHistogram must not be null");
+            throw new NullPointerException("agentHistogram");
         }
         for (AgentHistogram agentHistogram : addAgentHistogramList.agentHistogramMap.values()) {
             addAgentHistogram(agentHistogram);

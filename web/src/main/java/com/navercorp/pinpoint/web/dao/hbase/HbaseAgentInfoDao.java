@@ -16,25 +16,26 @@
 
 package com.navercorp.pinpoint.web.dao.hbase;
 
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
+import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
+import com.navercorp.pinpoint.common.hbase.HbaseTableConstatns;
+import com.navercorp.pinpoint.common.hbase.ResultsExtractor;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
 import com.navercorp.pinpoint.common.server.util.RowKeyUtils;
 import com.navercorp.pinpoint.common.util.TimeUtils;
 import com.navercorp.pinpoint.web.dao.AgentInfoDao;
-
-import com.navercorp.pinpoint.web.mapper.AgentInfoResultsExtractor;
 import com.navercorp.pinpoint.web.vo.AgentInfo;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author emeroad
@@ -45,14 +46,18 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
 
     private static final int SCANNER_CACHING = 1;
 
-    @Autowired
-    private HbaseOperations2 hbaseOperations2;
+    private final HbaseOperations2 hbaseOperations2;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final ResultsExtractor<AgentInfo> agentInfoResultsExtractor;
 
-    @Autowired
-    private AgentInfoResultsExtractor agentInfoResultsExtractor;
+    private final TableDescriptor<HbaseColumnFamily.AgentInfo> descriptor;
+
+    public HbaseAgentInfoDao(HbaseOperations2 hbaseOperations2, TableDescriptor<HbaseColumnFamily.AgentInfo> descriptor,
+                             ResultsExtractor<AgentInfo> agentInfoResultsExtractor) {
+        this.hbaseOperations2 = Objects.requireNonNull(hbaseOperations2, "hbaseOperations2");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.agentInfoResultsExtractor = Objects.requireNonNull(agentInfoResultsExtractor, "agentInfoResultsExtractor");
+    }
 
     /**
      * Returns the very first information of the agent
@@ -61,12 +66,11 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
      */
     @Override
     public AgentInfo getInitialAgentInfo(final String agentId) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
+
         Scan scan = createScanForInitialAgentInfo(agentId);
 
-        TableName agentInfoTableName = tableNameProvider.getTableName(HBaseTables.AGENTINFO_STR);
+        TableName agentInfoTableName = descriptor.getTableName();
         return this.hbaseOperations2.find(agentInfoTableName, scan, agentInfoResultsExtractor);
     }
 
@@ -80,14 +84,14 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
             scans.add(createScanForInitialAgentInfo(agentId));
         }
 
-        TableName agentInfoTableName = tableNameProvider.getTableName(HBaseTables.AGENTINFO_STR);
+        TableName agentInfoTableName = descriptor.getTableName();
         return this.hbaseOperations2.find(agentInfoTableName, scans, agentInfoResultsExtractor);
     }
 
     private Scan createScanForInitialAgentInfo(String agentId) {
         Scan scan = new Scan();
         byte[] agentIdBytes = Bytes.toBytes(agentId);
-        byte[] reverseStartKey = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HBaseTables.AGENT_NAME_MAX_LEN, Long.MAX_VALUE);
+        byte[] reverseStartKey = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HbaseTableConstatns.AGENT_NAME_MAX_LEN, Long.MAX_VALUE);
         scan.setStartRow(reverseStartKey);
         scan.setReversed(true);
         scan.setMaxVersions(1);
@@ -104,13 +108,11 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
      */
     @Override
     public AgentInfo getAgentInfo(final String agentId, final long timestamp) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
 
         Scan scan = createScan(agentId, timestamp);
 
-        TableName agentInfoTableName = tableNameProvider.getTableName(HBaseTables.AGENTINFO_STR);
+        TableName agentInfoTableName = descriptor.getTableName();
         return this.hbaseOperations2.find(agentInfoTableName, scan, agentInfoResultsExtractor);
     }
 
@@ -125,7 +127,7 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
             scans.add(createScan(agentId, timestamp));
         }
 
-        TableName agentInfoTableName = tableNameProvider.getTableName(HBaseTables.AGENTINFO_STR);
+        TableName agentInfoTableName = descriptor.getTableName();
         return this.hbaseOperations2.findParallel(agentInfoTableName, scans, agentInfoResultsExtractor);
     }
 
@@ -134,17 +136,18 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
 
         byte[] agentIdBytes = Bytes.toBytes(agentId);
         long startTime = TimeUtils.reverseTimeMillis(currentTime);
-        byte[] startKeyBytes = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HBaseTables.AGENT_NAME_MAX_LEN, startTime);
-        byte[] endKeyBytes = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HBaseTables.AGENT_NAME_MAX_LEN, Long.MAX_VALUE);
+        byte[] startKeyBytes = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HbaseTableConstatns.AGENT_NAME_MAX_LEN, startTime);
+        byte[] endKeyBytes = RowKeyUtils.concatFixedByteAndLong(agentIdBytes, HbaseTableConstatns.AGENT_NAME_MAX_LEN, Long.MAX_VALUE);
 
         scan.setStartRow(startKeyBytes);
         scan.setStopRow(endKeyBytes);
-        scan.addFamily(HBaseTables.AGENTINFO_CF_INFO);
+        scan.addFamily(descriptor.getColumnFamilyName());
 
         scan.setMaxVersions(1);
         scan.setCaching(SCANNER_CACHING);
 
         return scan;
     }
+
 
 }

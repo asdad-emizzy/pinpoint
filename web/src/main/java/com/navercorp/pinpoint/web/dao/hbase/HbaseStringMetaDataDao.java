@@ -16,21 +16,21 @@
 
 package com.navercorp.pinpoint.web.dao.hbase;
 
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
-import com.navercorp.pinpoint.common.server.bo.StringMetaDataBo;
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
+import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.hbase.RowMapper;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
+import com.navercorp.pinpoint.common.server.bo.StringMetaDataBo;
 import com.navercorp.pinpoint.web.dao.StringMetaDataDao;
-import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 
+import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Get;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author emeroad
@@ -38,37 +38,40 @@ import java.util.List;
 @Repository
 public class HbaseStringMetaDataDao implements StringMetaDataDao {
 
-    @Autowired
-    private HbaseOperations2 hbaseOperations2;
+    private final HbaseOperations2 hbaseOperations2;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final RowMapper<List<StringMetaDataBo>> stringMetaDataMapper;
 
-    @Autowired
-    @Qualifier("stringMetaDataMapper")
-    private RowMapper<List<StringMetaDataBo>> stringMetaDataMapper;
+    private final RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
 
-    @Autowired
-    @Qualifier("metadataRowKeyDistributor")
-    private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+    private final TableDescriptor<HbaseColumnFamily.StringMetadataStr> descriptor;
+
+    public HbaseStringMetaDataDao(HbaseOperations2 hbaseOperations2,
+                                  TableDescriptor<HbaseColumnFamily.StringMetadataStr> descriptor,
+                                  @Qualifier("stringMetaDataMapper") RowMapper<List<StringMetaDataBo>> stringMetaDataMapper,
+                                  @Qualifier("metadataRowKeyDistributor") RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
+        this.hbaseOperations2 = Objects.requireNonNull(hbaseOperations2, "hbaseOperations2");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.stringMetaDataMapper = Objects.requireNonNull(stringMetaDataMapper, "stringMetaDataMapper");
+        this.rowKeyDistributorByHashPrefix = Objects.requireNonNull(rowKeyDistributorByHashPrefix, "rowKeyDistributorByHashPrefix");
+    }
 
     @Override
     public List<StringMetaDataBo> getStringMetaData(String agentId, long time, int stringId) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
 
         StringMetaDataBo stringMetaData = new StringMetaDataBo(agentId, time, stringId);
         byte[] rowKey = getDistributedKey(stringMetaData.toRowKey());
 
         Get get = new Get(rowKey);
-        get.addFamily(HBaseTables.STRING_METADATA_CF_STR);
+        get.addFamily(descriptor.getColumnFamilyName());
 
-        TableName stringMetaDataTableName = tableNameProvider.getTableName(HBaseTables.STRING_METADATA_STR);
+        TableName stringMetaDataTableName = descriptor.getTableName();
         return hbaseOperations2.get(stringMetaDataTableName, get, stringMetaDataMapper);
     }
 
     private byte[] getDistributedKey(byte[] rowKey) {
         return rowKeyDistributorByHashPrefix.getDistributedKey(rowKey);
     }
+
 }

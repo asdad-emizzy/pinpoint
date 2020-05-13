@@ -16,20 +16,23 @@
 package com.navercorp.pinpoint.web.dao.hbase;
 
 import com.navercorp.pinpoint.common.server.bo.codec.stat.join.MemoryDecoder;
+import com.navercorp.pinpoint.common.server.bo.stat.join.JoinMemoryBo;
 import com.navercorp.pinpoint.common.server.bo.stat.join.StatType;
 import com.navercorp.pinpoint.web.dao.ApplicationMemoryDao;
 import com.navercorp.pinpoint.web.mapper.stat.ApplicationStatMapper;
 import com.navercorp.pinpoint.web.mapper.stat.SampledApplicationStatResultExtractor;
-import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.JoinMemorySampler;
+import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.ApplicationStatSampler;
 import com.navercorp.pinpoint.web.util.TimeWindow;
 import com.navercorp.pinpoint.web.vo.Range;
 import com.navercorp.pinpoint.web.vo.stat.AggreJoinMemoryBo;
 import com.navercorp.pinpoint.web.vo.stat.AggregationStatData;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author minwoo.jung
@@ -37,14 +40,17 @@ import java.util.List;
 @Repository
 public class HbaseApplicationMemoryDao implements ApplicationMemoryDao {
 
-    @Autowired
-    private MemoryDecoder memoryDecoder;
+    private final MemoryDecoder memoryDecoder;
 
-    @Autowired
-    private JoinMemorySampler memorySampler;
+    private final ApplicationStatSampler<JoinMemoryBo> memorySampler;
 
-    @Autowired
-    private HbaseApplicationStatDaoOperations operations;
+    private final HbaseApplicationStatDaoOperations operations;
+
+    public HbaseApplicationMemoryDao(MemoryDecoder memoryDecoder, ApplicationStatSampler<JoinMemoryBo> memorySampler, HbaseApplicationStatDaoOperations operations) {
+        this.memoryDecoder = Objects.requireNonNull(memoryDecoder, "memoryDecoder");
+        this.memorySampler = Objects.requireNonNull(memorySampler, "memorySampler");
+        this.operations = Objects.requireNonNull(operations, "operations");
+    }
 
     @Override
     public List<AggreJoinMemoryBo> getApplicationStatList(String applicationId, TimeWindow timeWindow) {

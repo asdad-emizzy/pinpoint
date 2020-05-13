@@ -1,7 +1,7 @@
---DROP TABLE user_group;
---DROP TABLE user_group_member;
---DROP TABLE puser;
---DROP TABLE alarm_rule;
+-- DROP TABLE user_group;
+-- DROP TABLE user_group_member;
+-- DROP TABLE puser;
+-- DROP TABLE alarm_rule;
 
 CREATE TABLE `user_group` (
     `number` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -23,6 +23,7 @@ CREATE TABLE `puser` (
   `user_id` VARCHAR(30) NOT NULL,
   `name` VARCHAR(150) NOT NULL,
   `department` VARCHAR(150) NOT NULL,
+  `phone_country_code` int(10) NOT NULL DEFAULT '0',
   `phonenumber` VARCHAR(100),
   `email` VARCHAR(100),
   PRIMARY KEY (`number`)
@@ -41,10 +42,11 @@ CREATE TABLE `alarm_rule` (
   `notes` VARCHAR(100) DEFAULT NULL,
   PRIMARY KEY (`rule_id`)
 );
-ALTER TABLE alarm_rule ADD UNIQUE KEY application_id_checker_name_user_group_id_idx (application_id, user_group_id, checker_name);
+ALTER TABLE alarm_rule ADD INDEX application_id_checker_name_user_group_id_idx (application_id, user_group_id, checker_name);
 
 CREATE TABLE `alarm_history` (
   `history_id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `rule_id` INT(10) UNSIGNED NOT NULL,
   `application_id` VARCHAR(30) NOT NULL,
   `checker_name` VARCHAR(50) NOT NULL,
   `detected` CHAR(1) DEFAULT NULL,
@@ -52,7 +54,7 @@ CREATE TABLE `alarm_history` (
   `timing_count` INT(10),
   PRIMARY KEY (`history_id`)
 );
-ALTER TABLE alarm_history ADD UNIQUE KEY application_id_checker_name_idx (application_id, checker_name);
+ALTER TABLE alarm_history ADD INDEX application_id_checker_name_idx (application_id, checker_name);
 
 CREATE TABLE `agent_statistics` (
   `agent_count` INT(10) UNSIGNED NOT NULL,

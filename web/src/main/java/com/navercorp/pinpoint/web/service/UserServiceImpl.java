@@ -15,14 +15,21 @@
  */
 package com.navercorp.pinpoint.web.service;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import com.navercorp.pinpoint.common.util.CollectionUtils;
 import com.navercorp.pinpoint.web.dao.UserDao;
+import com.navercorp.pinpoint.web.util.DefaultUserInfoDecoder;
+import com.navercorp.pinpoint.web.util.UserInfoDecoder;
 import com.navercorp.pinpoint.web.vo.User;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @author minwoo.jung
@@ -31,8 +38,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(rollbackFor = {Exception.class})
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    UserDao userDao;
+    private static final String EMPTY = "";
+
+    private final UserDao userDao;
+
+    private final UserInfoDecoder userInfoDecoder;
+
+    public UserServiceImpl(UserDao userDao, Optional<UserInfoDecoder> userInfoDecoder) {
+        this.userDao = Objects.requireNonNull(userDao, "userDao");
+        this.userInfoDecoder = Objects.requireNonNull(userInfoDecoder, "userInfoDecoder").orElse(DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER);
+    }
     
     @Override
     public void insertUser(User user) {
@@ -40,8 +55,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUser(User user) {
-        userDao.deleteUser(user);
+    public void deleteUser(String userId) {
+        userDao.deleteUser(userId);
     }
 
 
@@ -53,25 +68,35 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public List<User> selectUser() {
-        return userDao.selectUser();
+        List<User> userList = userDao.selectUser();
+        return decodePhoneNumber(userList);
     }
 
     @Override
     @Transactional(readOnly = true)
     public User selectUserByUserId(String userId) {
-        return userDao.selectUserByUserId(userId);
+        User user = userDao.selectUserByUserId(userId);
+        return decodePhoneNumber(user);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<User> selectUserByUserName(String userName) {
-        return userDao.selectUserByUserName(userName);
+        List<User> userList = userDao.selectUserByUserName(userName);
+        return decodePhoneNumber(userList);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<User> selectUserByDepartment(String department) {
-        return userDao.selectUserByDepartment(department);
+        List<User> userList = userDao.selectUserByDepartment(department);
+        return decodePhoneNumber(userList);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isExistUserId(String userId) {
+        return userDao.isExistUserId(userId);
     }
 
     @Override
@@ -82,6 +107,48 @@ public class UserServiceImpl implements UserService {
     @Override
     public void insertUserList(List<User> users) {
         userDao.insertUserList(users);
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    public String getUserIdFromSecurity() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            return (String)authentication.getPrincipal();
+        }
+
+        return EMPTY;
+    }
+
+    private User decodePhoneNumber(User user) {
+        if (user == null) {
+            return user;
+        }
+
+        if (DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER.equals(userInfoDecoder)) {
+            return user;
+        }
+
+        String phoneNumber = userInfoDecoder.decodePhoneNumber(user.getPhoneNumber());
+        User decodedUser = new User(user.getNumber(), user.getUserId(), user.getName(), user.getDepartment(), user.getPhoneCountryCode(), phoneNumber, user.getEmail());
+        return decodedUser;
+    }
+
+    private List<User> decodePhoneNumber(List<User> userList) {
+        if (CollectionUtils.isEmpty(userList)) {
+            return userList;
+        }
+
+        if (DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER.equals(userInfoDecoder)) {
+            return userList;
+        }
+
+        List<User> decodedUserList = new ArrayList<>(userList.size());
+        for (User user : userList) {
+            decodedUserList.add(decodePhoneNumber(user));
+        }
+
+        return decodedUserList;
     }
 
 }

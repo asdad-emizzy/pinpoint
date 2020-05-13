@@ -18,21 +18,25 @@ package com.navercorp.pinpoint.collector.service;
 
 import com.navercorp.pinpoint.collector.dao.AgentEventDao;
 import com.navercorp.pinpoint.common.server.bo.event.AgentEventBo;
-import com.navercorp.pinpoint.common.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 @Service
 public class AgentEventService {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private AgentEventDao agentEventDao;
+    private final AgentEventDao agentEventDao;
+
+    public AgentEventService(AgentEventDao agentEventDao) {
+        this.agentEventDao = Objects.requireNonNull(agentEventDao, "agentEventDao");
+    }
 
     public void insert(final AgentEventBo agentEventBo) {
-        Assert.requireNonNull(agentEventBo, "agentEventBo must not be null");
+        Objects.requireNonNull(agentEventBo, "agentEventBo");
         if (logger.isDebugEnabled()) {
             logger.debug("Insert {}", agentEventBo);
         }

@@ -15,8 +15,6 @@
  */
 package com.navercorp.pinpoint.web.batch.flink;
 
-import com.navercorp.pinpoint.web.alarm.AlarmMessageSender;
-import com.navercorp.pinpoint.web.alarm.EmptyMessageSender;
 import com.navercorp.pinpoint.web.batch.BatchConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +60,7 @@ public class HealthCheckTasklet implements Tasklet {
 
         Map<String, Boolean> jobExecuteStatus = createjobExecuteStatus();
 
-        for(String url : urlList) {
+        for (String url : urlList) {
             try {
                 ResponseEntity<Map> responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Map.class);
 
@@ -92,12 +90,12 @@ public class HealthCheckTasklet implements Tasklet {
     }
 
     private void checkJobExecuteStatus(ResponseEntity<Map> responseEntity, Map<String, Boolean> jobExecuteStatus) {
-        Map<Object, Object> responseData = responseEntity.getBody();
-        List<Object> runningJob = (List<Object>)responseData.get("running");
+        Map<?, ?> responseData = responseEntity.getBody();
+        List<?> runningJob = (List<?>)responseData.get("running");
 
         if (runningJob != null) {
             for (Object job : runningJob) {
-                Map<String, Object> jobInfo = (Map<String, Object>)job;
+                Map<?, ?> jobInfo = (Map<?, ?>)job;
                 String jobName = (String) jobInfo.get("name");
 
                 Boolean status = jobExecuteStatus.get(jobName);

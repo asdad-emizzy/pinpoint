@@ -17,20 +17,22 @@
 package com.navercorp.pinpoint.collector.dao.hbase;
 
 import com.navercorp.pinpoint.collector.dao.SqlMetaDataDao;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
-import com.navercorp.pinpoint.common.server.bo.SqlMetaDataBo;
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
+import com.navercorp.pinpoint.collector.util.CollectorUtils;
+import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
-import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
+import com.navercorp.pinpoint.common.server.bo.SqlMetaDataBo;
 
+import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
+
+import java.util.Objects;
 
 /**
  * @author minwoo.jung
@@ -40,36 +42,43 @@ public class HbaseSqlMetaDataDao implements SqlMetaDataDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private HbaseOperations2 hbaseTemplate;
+    private final HbaseOperations2 hbaseTemplate;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final TableDescriptor<HbaseColumnFamily.SqlMetadataV2> descriptor;
 
-    @Autowired
-    @Qualifier("metadataRowKeyDistributor2")
-    private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+    private final RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+
+    public HbaseSqlMetaDataDao(HbaseOperations2 hbaseTemplate,
+                               TableDescriptor<HbaseColumnFamily.SqlMetadataV2> descriptor,
+                               @Qualifier("metadataRowKeyDistributor2") RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
+        this.hbaseTemplate = Objects.requireNonNull(hbaseTemplate, "hbaseTemplate");
+        this.rowKeyDistributorByHashPrefix = Objects.requireNonNull(rowKeyDistributorByHashPrefix, "rowKeyDistributorByHashPrefix");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+    }
 
     @Override
     public void insert(SqlMetaDataBo sqlMetaData) {
-        if (sqlMetaData == null) {
-            throw new NullPointerException("sqlMetaData must not be null");
-        }
+        Objects.requireNonNull(sqlMetaData, "sqlMetaData");
         if (logger.isDebugEnabled()) {
             logger.debug("insert:{}", sqlMetaData);
         }
+
+        // Assert agentId
+        CollectorUtils.checkAgentId(sqlMetaData.getAgentId());
 
         final byte[] rowKey = getDistributedKey(sqlMetaData.toRowKey());
         final Put put = new Put(rowKey);
         final String sql = sqlMetaData.getSql();
         final byte[] sqlBytes = Bytes.toBytes(sql);
-        put.addColumn(HBaseTables.SQL_METADATA_VER2_CF_SQL, HBaseTables.SQL_METADATA_VER2_CF_SQL_QUALI_SQLSTATEMENT, sqlBytes);
+        put.addColumn(descriptor.getColumnFamilyName(), descriptor.getColumnFamily().QUALIFIER_SQLSTATEMENT, sqlBytes);
 
-        final TableName sqlMetaDataTableName = tableNameProvider.getTableName(HBaseTables.SQL_METADATA_VER2_STR);
+        final TableName sqlMetaDataTableName = descriptor.getTableName();
         hbaseTemplate.put(sqlMetaDataTableName, put);
     }
 
     private byte[] getDistributedKey(byte[] rowKey) {
         return rowKeyDistributorByHashPrefix.getDistributedKey(rowKey);
     }
+
+
 }

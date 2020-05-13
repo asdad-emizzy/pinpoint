@@ -17,12 +17,14 @@
 
 package com.navercorp.pinpoint.collector.manage;
 
+import com.navercorp.pinpoint.collector.cluster.AgentInfo;
+import com.navercorp.pinpoint.collector.cluster.ClusterPoint;
 import com.navercorp.pinpoint.collector.cluster.ClusterPointLocator;
-import com.navercorp.pinpoint.collector.cluster.TargetClusterPoint;
 import com.navercorp.pinpoint.collector.config.CollectorConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Taejin Koo
@@ -33,8 +35,9 @@ public class ClusterManager extends AbstractCollectorManager implements ClusterM
     private final ClusterPointLocator clusterPointLocator;
 
     public ClusterManager(CollectorConfiguration configuration, ClusterPointLocator clusterPointLocator) {
+        Objects.requireNonNull(configuration, "configuration");
         this.enableCluster = configuration.isClusterEnable();
-        this.clusterPointLocator = clusterPointLocator;
+        this.clusterPointLocator = Objects.requireNonNull(clusterPointLocator, "clusterPointLocator");
     }
 
     @Override
@@ -46,26 +49,13 @@ public class ClusterManager extends AbstractCollectorManager implements ClusterM
     public List<String> getConnectedAgentList() {
         List<String> result = new ArrayList<>();
 
-        List clusterPointList = clusterPointLocator.getClusterPointList();
-        for (Object clusterPoint : clusterPointList) {
-            if (clusterPoint instanceof TargetClusterPoint) {
-                TargetClusterPoint agentClusterPoint = (TargetClusterPoint) clusterPoint;
-                result.add(createAgentKey(agentClusterPoint));
-            }
+        List<ClusterPoint> clusterPointList = clusterPointLocator.getClusterPointList();
+        for (ClusterPoint clusterPoint : clusterPointList) {
+            AgentInfo destAgentInfo = clusterPoint.getDestAgentInfo();
+            result.add(destAgentInfo.getAgentKey());
         }
 
         return result;
-    }
-
-    private String createAgentKey(TargetClusterPoint agentClusterPoint) {
-        StringBuilder key = new StringBuilder();
-        key.append(agentClusterPoint.getApplicationName());
-        key.append("/");
-        key.append(agentClusterPoint.getAgentId());
-        key.append("/");
-        key.append(agentClusterPoint.getStartTimeStamp());
-
-        return key.toString();
     }
 
 }

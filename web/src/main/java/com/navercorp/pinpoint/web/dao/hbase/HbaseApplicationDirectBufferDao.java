@@ -16,11 +16,12 @@
 package com.navercorp.pinpoint.web.dao.hbase;
 
 import com.navercorp.pinpoint.common.server.bo.codec.stat.join.DirectBufferDecoder;
+import com.navercorp.pinpoint.common.server.bo.stat.join.JoinDirectBufferBo;
 import com.navercorp.pinpoint.common.server.bo.stat.join.StatType;
 import com.navercorp.pinpoint.web.dao.ApplicationDirectBufferDao;
 import com.navercorp.pinpoint.web.mapper.stat.ApplicationStatMapper;
 import com.navercorp.pinpoint.web.mapper.stat.SampledApplicationStatResultExtractor;
-import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.JoinDirectBufferSampler;
+import com.navercorp.pinpoint.web.mapper.stat.sampling.sampler.ApplicationStatSampler;
 import com.navercorp.pinpoint.web.util.TimeWindow;
 import com.navercorp.pinpoint.web.vo.Range;
 import com.navercorp.pinpoint.web.vo.stat.AggreJoinDirectBufferBo;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Roy Kim
@@ -37,14 +39,17 @@ import java.util.List;
 @Repository
 public class HbaseApplicationDirectBufferDao implements ApplicationDirectBufferDao {
 
-    @Autowired
-    private DirectBufferDecoder directBufferDecoder;
+    private final DirectBufferDecoder directBufferDecoder;
 
-    @Autowired
-    private JoinDirectBufferSampler directBufferSampler;
+    private final ApplicationStatSampler<JoinDirectBufferBo> directBufferSampler;
 
-    @Autowired
-    private HbaseApplicationStatDaoOperations operations;
+    private final HbaseApplicationStatDaoOperations operations;
+
+    public HbaseApplicationDirectBufferDao(DirectBufferDecoder directBufferDecoder, ApplicationStatSampler<JoinDirectBufferBo> directBufferSampler, HbaseApplicationStatDaoOperations operations) {
+        this.directBufferDecoder = Objects.requireNonNull(directBufferDecoder, "directBufferDecoder");
+        this.directBufferSampler = Objects.requireNonNull(directBufferSampler, "directBufferSampler");
+        this.operations = Objects.requireNonNull(operations, "operations");
+    }
 
     @Override
     public List<AggreJoinDirectBufferBo> getApplicationStatList(String applicationId, TimeWindow timeWindow) {

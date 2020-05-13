@@ -16,20 +16,21 @@
 
 package com.navercorp.pinpoint.web.dao.hbase;
 
-import java.util.List;
+import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
+import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
+import com.navercorp.pinpoint.common.hbase.RowMapper;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
+import com.navercorp.pinpoint.common.server.bo.SqlMetaDataBo;
+import com.navercorp.pinpoint.web.dao.SqlMetaDataDao;
 
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
-
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Get;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
-import com.navercorp.pinpoint.common.server.bo.SqlMetaDataBo;
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
-import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
-import com.navercorp.pinpoint.common.hbase.RowMapper;
-import com.navercorp.pinpoint.web.dao.SqlMetaDataDao;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * @author emeroad
@@ -38,33 +39,35 @@ import com.navercorp.pinpoint.web.dao.SqlMetaDataDao;
 //@Repository
 public class HbaseSqlMetaDataDao implements SqlMetaDataDao {
 
-    @Autowired
-    private HbaseOperations2 hbaseOperations2;
+    private final HbaseOperations2 hbaseOperations2;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final TableDescriptor<HbaseColumnFamily.SqlMetadataV2> descriptor;
 
-//    @Autowired
-//    @Qualifier("sqlMetaDataMapper")
-    private RowMapper<List<SqlMetaDataBo>> sqlMetaDataMapper;
+    private final RowMapper<List<SqlMetaDataBo>> sqlMetaDataMapper;
 
-//    @Autowired
-//    @Qualifier("metadataRowKeyDistributor2")
-    private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+    private final RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+
+    public HbaseSqlMetaDataDao(HbaseOperations2 hbaseOperations2,
+                               TableDescriptor<HbaseColumnFamily.SqlMetadataV2> descriptor,
+                               @Qualifier("sqlMetaDataMapper2") RowMapper<List<SqlMetaDataBo>> sqlMetaDataMapper,
+                               @Qualifier("metadataRowKeyDistributor2") RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
+        this.hbaseOperations2 = Objects.requireNonNull(hbaseOperations2, "hbaseOperations2");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.sqlMetaDataMapper = Objects.requireNonNull(sqlMetaDataMapper, "sqlMetaDataMapper");
+        this.rowKeyDistributorByHashPrefix = Objects.requireNonNull(rowKeyDistributorByHashPrefix, "rowKeyDistributorByHashPrefix");
+    }
 
     @Override
     public List<SqlMetaDataBo> getSqlMetaData(String agentId, long time, int sqlId) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
 
         SqlMetaDataBo sqlMetaData = new SqlMetaDataBo(agentId, time, sqlId);
         byte[] rowKey = getDistributedKey(sqlMetaData.toRowKey());
 
         Get get = new Get(rowKey);
-        get.addFamily(HBaseTables.SQL_METADATA_VER2_CF_SQL);
+        get.addFamily(descriptor.getColumnFamilyName());
 
-        TableName sqlMetaDataTableName = tableNameProvider.getTableName(HBaseTables.SQL_METADATA_VER2_STR);
+        TableName sqlMetaDataTableName = descriptor.getTableName();
         return hbaseOperations2.get(sqlMetaDataTableName, get, sqlMetaDataMapper);
     }
 
@@ -72,11 +75,4 @@ public class HbaseSqlMetaDataDao implements SqlMetaDataDao {
         return rowKeyDistributorByHashPrefix.getDistributedKey(rowKey);
     }
     
-    public void setSqlMetaDataMapper(RowMapper<List<SqlMetaDataBo>> sqlMetaDataMapper) {
-        this.sqlMetaDataMapper = sqlMetaDataMapper;
-    }
-    
-    public void setRowKeyDistributorByHashPrefix(RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
-        this.rowKeyDistributorByHashPrefix = rowKeyDistributorByHashPrefix;
-    }
 }

@@ -17,7 +17,6 @@
 package com.navercorp.pinpoint.profiler.instrument;
 
 import com.navercorp.pinpoint.bootstrap.instrument.InstrumentContext;
-import com.navercorp.pinpoint.bootstrap.interceptor.Interceptor;
 import com.navercorp.pinpoint.bootstrap.interceptor.annotation.Scope;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.ExecutionPolicy;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
@@ -30,10 +29,8 @@ public class ScopeFactory {
     public ScopeFactory() {
     }
 
-    public ScopeInfo newScopeInfo(ClassLoader classLoader, InstrumentContext pluginContext, String interceptorClassName, InterceptorScope scope, ExecutionPolicy policy) {
-
+    public ScopeInfo newScopeInfo(InstrumentContext pluginContext, Class<?> interceptorClass, InterceptorScope scope, ExecutionPolicy policy) {
         if (scope == null) {
-            final Class<? extends Interceptor> interceptorClass = pluginContext.injectClass(classLoader, interceptorClassName);
             final Scope scopeAnnotation = interceptorClass.getAnnotation(Scope.class);
             if (scopeAnnotation != null) {
                 return newScopeInfoByAnnotation(pluginContext, scopeAnnotation);

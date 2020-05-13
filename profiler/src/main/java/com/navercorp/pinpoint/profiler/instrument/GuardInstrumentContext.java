@@ -35,7 +35,7 @@ public class GuardInstrumentContext implements InstrumentContext {
 
     public GuardInstrumentContext(InstrumentContext instrumentContext) {
         if (instrumentContext == null) {
-            throw new NullPointerException("instrumentContext must not be null");
+            throw new NullPointerException("instrumentContext");
         }
 
         this.instrumentContext = instrumentContext;
@@ -79,9 +79,27 @@ public class GuardInstrumentContext implements InstrumentContext {
     }
 
     @Override
+    public void addClassFileTransformer(ClassLoader classLoader, String targetClassName, String transformCallbackClass) {
+        checkOpen();
+        instrumentContext.addClassFileTransformer(classLoader, targetClassName, transformCallbackClass);
+    }
+
+    @Override
     public void addClassFileTransformer(Matcher matcher, TransformCallback transformCallback) {
         checkOpen();
         instrumentContext.addClassFileTransformer(matcher, transformCallback);
+    }
+
+    @Override
+    public void addClassFileTransformer(Matcher matcher, String transformCallbackClassName) {
+        checkOpen();
+        instrumentContext.addClassFileTransformer(matcher, transformCallbackClassName);
+    }
+
+    @Override
+    public void addClassFileTransformer(Matcher matcher, String transformCallbackClassName, Object[] parameters, Class<?>[] parameterType) {
+        checkOpen();
+        instrumentContext.addClassFileTransformer(matcher, transformCallbackClassName, parameters, parameterType);
     }
 
     @Override

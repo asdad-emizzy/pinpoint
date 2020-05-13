@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,23 @@
 
 package com.navercorp.pinpoint.web.controller;
 
-import java.util.List;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.navercorp.pinpoint.common.util.DefaultJsonParser;
-import com.navercorp.pinpoint.common.util.DefaultSqlParser;
-import com.navercorp.pinpoint.common.util.JsonParser;
-import com.navercorp.pinpoint.common.util.OutputParameterJsonParser;
-import com.navercorp.pinpoint.common.util.OutputParameterParser;
-import com.navercorp.pinpoint.common.util.SqlParser;
-import com.navercorp.pinpoint.common.util.TransactionId;
-import com.navercorp.pinpoint.common.util.TransactionIdUtils;
+import com.navercorp.pinpoint.common.profiler.sql.DefaultSqlParser;
+import com.navercorp.pinpoint.common.profiler.sql.OutputParameterParser;
+import com.navercorp.pinpoint.common.profiler.sql.SqlParser;
+import com.navercorp.pinpoint.common.profiler.util.TransactionId;
+import com.navercorp.pinpoint.common.profiler.util.TransactionIdUtils;
+import com.navercorp.pinpoint.web.applicationmap.ApplicationMap;
+import com.navercorp.pinpoint.web.calltree.span.CallTreeIterator;
+import com.navercorp.pinpoint.web.config.LogConfiguration;
+import com.navercorp.pinpoint.web.service.FilteredMapService;
+import com.navercorp.pinpoint.web.service.SpanResult;
+import com.navercorp.pinpoint.web.service.SpanService;
+import com.navercorp.pinpoint.web.service.TransactionInfoService;
+import com.navercorp.pinpoint.web.util.DefaultMongoJsonParser;
+import com.navercorp.pinpoint.web.util.MongoJsonParser;
+import com.navercorp.pinpoint.web.util.OutputParameterMongoJsonParser;
 import com.navercorp.pinpoint.web.view.TransactionInfoViewModel;
+import com.navercorp.pinpoint.web.vo.callstacks.RecordSet;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,13 +44,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.navercorp.pinpoint.web.applicationmap.ApplicationMap;
-import com.navercorp.pinpoint.web.calltree.span.CallTreeIterator;
-import com.navercorp.pinpoint.web.service.FilteredMapService;
-import com.navercorp.pinpoint.web.service.SpanResult;
-import com.navercorp.pinpoint.web.service.SpanService;
-import com.navercorp.pinpoint.web.service.TransactionInfoService;
-import com.navercorp.pinpoint.web.vo.callstacks.RecordSet;
+import java.util.List;
 
 /**
  * @author emeroad
@@ -65,23 +64,14 @@ public class BusinessTransactionController {
     @Autowired
     private FilteredMapService filteredMapService;
 
-    @Value("#{pinpointWebProps['log.enable'] ?: false}")
-    private boolean logLinkEnable;
-
-    @Value("#{pinpointWebProps['log.button.name'] ?: ''}")
-    private String logButtonName;
-
-    @Value("#{pinpointWebProps['log.page.url'] ?: ''}")
-    private String logPageUrl;
-
-    @Value("#{pinpointWebProps['log.button.disable.message'] ?: ''}")
-    private String disableButtonMessage;
+    @Autowired
+    private LogConfiguration logConfiguration;
 
     private SqlParser sqlParser = new DefaultSqlParser();
     private OutputParameterParser parameterParser = new OutputParameterParser();
 
-    private JsonParser jsonParser = new DefaultJsonParser();
-    private OutputParameterJsonParser parameterJsonParser = new OutputParameterJsonParser();
+    private MongoJsonParser mongoJsonParser = new DefaultMongoJsonParser();
+    private OutputParameterMongoJsonParser parameterJsonParser = new OutputParameterMongoJsonParser();
 
     /**
      * info lookup for a selected transaction
@@ -109,66 +99,42 @@ public class BusinessTransactionController {
         ApplicationMap map = filteredMapService.selectApplicationMap(transactionId, viewVersion);
         RecordSet recordSet = this.transactionInfoService.createRecordSet(callTreeIterator, focusTimestamp, agentId, spanId);
 
-        TransactionInfoViewModel result = new TransactionInfoViewModel(transactionId, map.getNodes(), map.getLinks(), recordSet, spanResult.getCompleteTypeString(), logLinkEnable, logButtonName, logPageUrl, disableButtonMessage);
+        TransactionInfoViewModel result = new TransactionInfoViewModel(transactionId, spanId, map.getNodes(), map.getLinks(), recordSet, spanResult.getTraceState(), logConfiguration);
         return result;
     }
 
-    @RequestMapping(value = "/sqlBind", method = RequestMethod.POST)
+    @RequestMapping(value = "/bind", method = RequestMethod.POST)
     @ResponseBody
-    public String sqlBind(@RequestParam("sql") String sql,
-                          @RequestParam("bind") String bind) {
+    public String metaDataBind(@RequestParam("type") String type,
+                                @RequestParam("metaData") String metaData,
+                                @RequestParam("bind") String bind) {
         if (logger.isDebugEnabled()) {
-            logger.debug("POST /sqlBind params {sql={}, bind={}}", sql, bind);
+            logger.debug("POST /bind params {metaData={}, bind={}}", metaData, bind);
         }
 
-        if (sql == null) {
+        if (metaData == null) {
             return "";
         }
 
-        final List<String> bindValues = parameterParser.parseOutputParameter(bind);
-        final String combineSql = sqlParser.combineBindValues(sql, bindValues);
+        List<String> bindValues;
+        String combinedResult = "";
+
+        if (type.equals("sql")) {
+            bindValues = parameterParser.parseOutputParameter(bind);
+            combinedResult = sqlParser.combineBindValues(metaData, bindValues);
+        } else if (type.equals("mongoJson")) {
+            bindValues = parameterJsonParser.parseOutputParameter(bind);
+            combinedResult = mongoJsonParser.combineBindValues(metaData, bindValues);
+        }
+
         if (logger.isDebugEnabled()) {
-            logger.debug("Combine SQL. sql={}", combineSql);
+            logger.debug("Combined result={}", combinedResult);
         }
 
-        return StringEscapeUtils.escapeHtml4(combineSql);
-    }
-
-    @RequestMapping(value = "/jsonBind", method = RequestMethod.POST)
-    @ResponseBody
-    public String jsonBind(@RequestParam("json") String json,
-                           @RequestParam("bind") String bind) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("POST /jsonBind params {json={}, bind={}}", json, bind);
+        if (type.equals("mongoJson")) {
+            return StringEscapeUtils.unescapeHtml4(combinedResult);
         }
 
-        if (json == null) {
-            return "";
-        }
-
-        final List<String> bindValues = parameterParser.parseOutputParameter(bind);
-        final String combinedJson = jsonParser.combineBindValues(json, bindValues);
-        if (logger.isDebugEnabled()) {
-            logger.debug("Combine SQL. sql={}", combinedJson);
-        }
-
-        ObjectMapper mapper = new ObjectMapper();
-        Object readJson;
-        String indented;
-        try {
-            readJson = mapper.readValue(combinedJson, Object.class);
-            indented = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(readJson);
-            if (logger.isDebugEnabled()) {
-                logger.debug("Indent Success = {} ", indented);
-            }
-        } catch (Exception e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Indent failed Exception: ", e);
-            }
-            indented = combinedJson;
-        }
-
-        return StringEscapeUtils.escapeHtml4(indented);
-
+        return StringEscapeUtils.escapeHtml4(combinedResult);
     }
 }

@@ -32,7 +32,7 @@ public class VertxConfig {
 
     public VertxConfig(ProfilerConfig config) {
         if (config == null) {
-            throw new NullPointerException("config must not be null");
+            throw new NullPointerException("config");
         }
 
         // plugin
@@ -61,5 +61,16 @@ public class VertxConfig {
 
     public List<String> getHandlerBasePackageNames() {
         return handlerBasePackageNames;
+    }
+
+    @Override
+    public String toString() {
+        return "VertxConfig{" +
+                "enable=" + enable +
+                ", enableHttpServer=" + enableHttpServer +
+                ", enableHttpClient=" + enableHttpClient +
+                ", bootstrapMains=" + bootstrapMains +
+                ", handlerBasePackageNames=" + handlerBasePackageNames +
+                '}';
     }
 }

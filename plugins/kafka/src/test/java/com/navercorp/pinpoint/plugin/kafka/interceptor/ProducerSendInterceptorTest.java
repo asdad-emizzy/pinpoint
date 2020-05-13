@@ -47,7 +47,7 @@ public class ProducerSendInterceptorTest {
     @Test
     public void before() {
 
-        doReturn(trace).when(traceContext).currentTraceObject();
+        doReturn(trace).when(traceContext).currentRawTraceObject();
         doReturn(true).when(trace).canSampled();
         doReturn(traceId).when(trace).getTraceId();
         doReturn(nextId).when(traceId).getNextTraceId();
@@ -81,7 +81,7 @@ public class ProducerSendInterceptorTest {
         interceptor.after(addressFieldAccessor, args, null, null);
 
         verify(recorder).recordEndPoint(KafkaConstants.UNKNOWN);
-        verify(recorder).recordDestinationId("topic:test");
+        verify(recorder).recordDestinationId("Unknown");
         verify(recorder).recordAttribute(KafkaConstants.KAFKA_TOPIC_ANNOTATION_KEY, "test");
     }
 }

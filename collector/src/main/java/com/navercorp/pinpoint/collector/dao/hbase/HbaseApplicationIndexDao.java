@@ -16,11 +16,11 @@
 
 package com.navercorp.pinpoint.collector.dao.hbase;
 
-import static com.navercorp.pinpoint.common.hbase.HBaseTables.*;
-
 import com.navercorp.pinpoint.collector.dao.ApplicationIndexDao;
+import com.navercorp.pinpoint.collector.util.CollectorUtils;
+import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
 import com.navercorp.pinpoint.common.server.bo.AgentInfoBo;
 
 import org.apache.hadoop.hbase.TableName;
@@ -28,8 +28,9 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
+
+import java.util.Objects;
 
 /**
  * application names list.
@@ -42,26 +43,32 @@ public class HbaseApplicationIndexDao implements ApplicationIndexDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private HbaseOperations2 hbaseTemplate;
+    private final HbaseOperations2 hbaseTemplate;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final TableDescriptor<HbaseColumnFamily.ApplicationIndex> descriptor;
+
+    public HbaseApplicationIndexDao(HbaseOperations2 hbaseTemplate, TableDescriptor<HbaseColumnFamily.ApplicationIndex> descriptor) {
+        this.hbaseTemplate = Objects.requireNonNull(hbaseTemplate, "hbaseTemplate");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+    }
 
     @Override
     public void insert(final AgentInfoBo agentInfo) {
-        if (agentInfo == null) {
-            throw new NullPointerException("agentInfo must not be null");
-        }
+        Objects.requireNonNull(agentInfo, "agentInfo");
+
+        // Assert agentId
+        CollectorUtils.checkAgentId(agentInfo.getAgentId());
+        // Assert applicationName
+        CollectorUtils.checkApplicationName(agentInfo.getApplicationName());
 
         final Put put = new Put(Bytes.toBytes(agentInfo.getApplicationName()));
         final byte[] qualifier = Bytes.toBytes(agentInfo.getAgentId());
         final byte[] value = Bytes.toBytes(agentInfo.getServiceTypeCode());
-        put.addColumn(APPLICATION_INDEX_CF_AGENTS, qualifier, value);
+        put.addColumn(descriptor.getColumnFamilyName(), qualifier, value);
 
-        final TableName applicationIndexTableName = tableNameProvider.getTableName(APPLICATION_INDEX_STR);
+        final TableName applicationIndexTableName = descriptor.getTableName();
         hbaseTemplate.put(applicationIndexTableName, put);
 
-        logger.debug("Insert agentInfo. {}", agentInfo);
+        logger.debug("Insert ApplicationIndex: {}", agentInfo);
     }
 }

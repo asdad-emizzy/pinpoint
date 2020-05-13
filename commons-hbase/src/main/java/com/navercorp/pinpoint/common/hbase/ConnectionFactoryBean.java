@@ -17,12 +17,17 @@
 package com.navercorp.pinpoint.common.hbase;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.RegionLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -31,28 +36,62 @@ import java.util.concurrent.ExecutorService;
 /**
  * @author HyunGil Jeong
  */
-public class ConnectionFactoryBean implements FactoryBean<Connection>, DisposableBean {
+public class ConnectionFactoryBean implements FactoryBean<Connection>, InitializingBean, DisposableBean {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    private final Connection connection;
+    @Autowired(required = false)
+    private TableNameProvider tableNameProvider;
+
+    @Qualifier("hbaseSecurityInterceptor")
+    @Autowired(required = false)
+    private HbaseSecurityInterceptor hbaseSecurityInterceptor = new EmptyHbaseSecurityInterceptor();
+
+    private final boolean warmUp;
+    private final Configuration configuration;
+    private Connection connection;
+    private ExecutorService executorService;
 
     public ConnectionFactoryBean(Configuration configuration) {
-        Objects.requireNonNull(configuration, " must not be null");
-        try {
-            connection = ConnectionFactory.createConnection(configuration);
-        } catch (IOException e) {
-            throw new HbaseSystemException(e);
-        }
+        Objects.requireNonNull(configuration, "configuration");
+        this.configuration = configuration;
+        warmUp = configuration.getBoolean("hbase.client.warmup.enable", false);
     }
 
     public ConnectionFactoryBean(Configuration configuration, ExecutorService executorService) {
-        Objects.requireNonNull(configuration, "configuration must not be null");
-        Objects.requireNonNull(executorService, "executorService must not be null");
+        Objects.requireNonNull(configuration, "configuration");
+        Objects.requireNonNull(executorService, "executorService");
+        this.configuration = configuration;
+        this.executorService = executorService;
+        warmUp = configuration.getBoolean("hbase.client.warmup.enable", false);
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        hbaseSecurityInterceptor.process(configuration);
         try {
-            connection = ConnectionFactory.createConnection(configuration, executorService);
+            if (Objects.isNull(executorService)) {
+                connection = ConnectionFactory.createConnection(this.configuration);
+            } else {
+                connection = ConnectionFactory.createConnection(this.configuration, executorService);
+            }
         } catch (IOException e) {
             throw new HbaseSystemException(e);
+        }
+
+        if (warmUp) {
+            if (tableNameProvider != null && tableNameProvider.hasDefaultNameSpace()) {
+                logger.info("warmup for hbase connection started");
+                for (HbaseTable hBaseTable : HbaseTable.values()) {
+                    try {
+                        TableName tableName = tableNameProvider.getTableName(hBaseTable);
+                        RegionLocator regionLocator = connection.getRegionLocator(tableName);
+                        regionLocator.getAllRegionLocations();
+                    } catch (IOException e) {
+                        logger.warn("Failed to warmup for Table:{}. message:{}", hBaseTable.getName(), e.getMessage(), e);
+                    }
+                }
+            }
         }
     }
 

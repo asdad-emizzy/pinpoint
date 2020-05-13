@@ -19,6 +19,7 @@ import java.util.List;
 
 import com.navercorp.pinpoint.web.vo.UserGroup;
 import com.navercorp.pinpoint.web.vo.UserGroupMember;
+import com.navercorp.pinpoint.web.vo.UserPhoneInfo;
 
 /**
  * @author minwoo.jung
@@ -52,4 +53,7 @@ public interface UserGroupDao {
 
     void updateUserGroupIdOfMember(UserGroup userGroup);
 
+    boolean isExistUserGroup(String userGroupId);
+
+    List<UserPhoneInfo> selectPhoneInfoOfMember(String userGroupId);
 }

@@ -16,14 +16,13 @@
 package com.navercorp.pinpoint.web.service.stat;
 
 import com.navercorp.pinpoint.common.server.bo.stat.join.JoinDataSourceListBo.DataSourceKey;
-import com.navercorp.pinpoint.common.service.ServiceTypeRegistryService;
+import com.navercorp.pinpoint.loader.service.ServiceTypeRegistryService;
 import com.navercorp.pinpoint.web.dao.ApplicationDataSourceDao;
 import com.navercorp.pinpoint.web.util.TimeWindow;
 import com.navercorp.pinpoint.web.vo.stat.AggreJoinDataSourceBo;
 import com.navercorp.pinpoint.web.vo.stat.AggreJoinDataSourceListBo;
 import com.navercorp.pinpoint.web.vo.stat.chart.StatChart;
 import com.navercorp.pinpoint.web.vo.stat.chart.application.ApplicationDataSourceChart;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -34,21 +33,20 @@ import java.util.*;
 @Service
 public class ApplicationDataSourceService {
 
-    @Autowired
-    private ApplicationDataSourceDao applicationDataSourceDao;
+    private final ApplicationDataSourceDao applicationDataSourceDao;
 
-    @Autowired
-    private ServiceTypeRegistryService serviceTypeRegistryService;
+    private final ServiceTypeRegistryService serviceTypeRegistryService;
 
     private static final AggreJoinDataSourceBoComparator comparator = new AggreJoinDataSourceBoComparator();
 
+    public ApplicationDataSourceService(ApplicationDataSourceDao applicationDataSourceDao, ServiceTypeRegistryService serviceTypeRegistryService) {
+        this.applicationDataSourceDao = Objects.requireNonNull(applicationDataSourceDao, "applicationDataSourceDao");
+        this.serviceTypeRegistryService = Objects.requireNonNull(serviceTypeRegistryService, "serviceTypeRegistryService");
+    }
+
     public List<StatChart> selectApplicationChart(String applicationId, TimeWindow timeWindow) {
-        if (applicationId == null) {
-            throw new NullPointerException("applicationId must not be null");
-        }
-        if (timeWindow == null) {
-            throw new NullPointerException("timeWindow must not be null");
-        }
+        Objects.requireNonNull(applicationId, "applicationId");
+        Objects.requireNonNull(timeWindow, "timeWindow");
 
         List<StatChart> result = new ArrayList<>();
         List<AggreJoinDataSourceListBo> aggreJoinDataSourceListBoList = this.applicationDataSourceDao.getApplicationStatList(applicationId, timeWindow);

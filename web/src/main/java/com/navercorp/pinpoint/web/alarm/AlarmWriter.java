@@ -19,6 +19,8 @@ package com.navercorp.pinpoint.web.alarm;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.annotation.BeforeStep;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -31,21 +33,28 @@ import com.navercorp.pinpoint.web.service.AlarmService;
  */
 public class AlarmWriter implements ItemWriter<AlarmChecker> {
 
-    @Autowired(required = false)
-    private AlarmMessageSender alarmMessageSender = new EmptyMessageSender();
+    @Autowired
+    private AlarmMessageSender alarmMessageSender;
 
     @Autowired
     private AlarmService alarmService;
+
+    private StepExecution stepExecution;
+
+    @BeforeStep
+    public void beforeStep(StepExecution stepExecution) {
+        this.stepExecution = stepExecution;
+    }
 
     @Override
     public void write(List<? extends AlarmChecker> checkers) throws Exception {
         Map<String, CheckerResult> beforeCheckerResults = alarmService.selectBeforeCheckerResults(checkers.get(0).getRule().getApplicationId());
 
         for (AlarmChecker checker : checkers) {
-            CheckerResult beforeCheckerResult = beforeCheckerResults.get(checker.getRule().getCheckerName());
+            CheckerResult beforeCheckerResult = beforeCheckerResults.get(checker.getRule().getRuleId());
 
             if (beforeCheckerResult == null) {
-                beforeCheckerResult = new CheckerResult(checker.getRule().getApplicationId(), checker.getRule().getCheckerName(), false, 0, 1);
+                beforeCheckerResult = new CheckerResult(checker.getRule().getRuleId(), checker.getRule().getApplicationId(), checker.getRule().getCheckerName(), false, 0, 1);
             }
 
             if (checker.isDetected()) {
@@ -59,10 +68,10 @@ public class AlarmWriter implements ItemWriter<AlarmChecker> {
     private void sendAlarmMessage(CheckerResult beforeCheckerResult, AlarmChecker checker) {
         if (isTurnToSendAlarm(beforeCheckerResult)) {
             if (checker.isSMSSend()) {
-                alarmMessageSender.sendSms(checker, beforeCheckerResult.getSequenceCount() + 1);
+                alarmMessageSender.sendSms(checker, beforeCheckerResult.getSequenceCount() + 1, stepExecution);
             }
             if (checker.isEmailSend()) {
-                alarmMessageSender.sendEmail(checker, beforeCheckerResult.getSequenceCount() + 1);
+                alarmMessageSender.sendEmail(checker, beforeCheckerResult.getSequenceCount() + 1, stepExecution);
             }
         }
 

@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author HyunGil Jeong
@@ -33,18 +34,17 @@ public class CpuLoadService implements AgentStatService<CpuLoadBo> {
 
     private final CpuLoadDao cpuLoadDao;
 
-    @Autowired
     public CpuLoadService(@Qualifier("cpuLoadDaoFactory") CpuLoadDao cpuLoadDao) {
-        this.cpuLoadDao = cpuLoadDao;
+        this.cpuLoadDao = Objects.requireNonNull(cpuLoadDao, "cpuLoadDao");
     }
 
     @Override
     public List<CpuLoadBo> selectAgentStatList(String agentId, Range range) {
         if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
+            throw new NullPointerException("agentId");
         }
         if (range == null) {
-            throw new NullPointerException("range must not be null");
+            throw new NullPointerException("range");
         }
         return this.cpuLoadDao.getAgentStatList(agentId, range);
     }

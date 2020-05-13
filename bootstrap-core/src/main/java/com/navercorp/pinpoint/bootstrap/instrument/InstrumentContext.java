@@ -27,7 +27,7 @@ import java.security.ProtectionDomain;
  * @author Woonduk Kang(emeroad)
  * @author jaehong.kim
  */
-public interface InstrumentContext {
+public interface InstrumentContext extends ClassInputStreamProvider {
 
     InstrumentClass getInstrumentClass(ClassLoader classLoader, String className, ProtectionDomain protectionDomain, byte[] classfileBuffer);
 
@@ -37,11 +37,18 @@ public interface InstrumentContext {
 
     <T> Class<? extends T> injectClass(ClassLoader targetClassLoader, String className);
 
+    @Override
     InputStream getResourceAsStream(ClassLoader targetClassLoader, String classPath);
 
     void addClassFileTransformer(ClassLoader classLoader, String targetClassName, TransformCallback transformCallback);
 
+    void addClassFileTransformer(ClassLoader classLoader, String targetClassName, String transformCallbackClassName);
+
     void addClassFileTransformer(Matcher matcher, TransformCallback transformCallback);
+
+    void addClassFileTransformer(Matcher matcher, String transformCallbackClassName);
+
+    void addClassFileTransformer(Matcher matcher, String transformCallbackClassName, Object[] parameters, Class<?>[] parameterTypes);
 
     void retransform(Class<?> target, TransformCallback transformCallback);
 

@@ -18,12 +18,11 @@ package com.navercorp.pinpoint.bootstrap.resolver.condition;
 
 import static org.junit.Assert.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Properties;
 
+import com.navercorp.pinpoint.common.util.PropertySnapshot;
 import org.junit.Test;
 
-import com.navercorp.pinpoint.bootstrap.resolver.condition.MainClassCondition;
 import com.navercorp.pinpoint.common.util.SimpleProperty;
 import com.navercorp.pinpoint.common.util.SystemPropertyKey;
 
@@ -113,29 +112,7 @@ public class MainClassConditionTest {
     }
     
     private static SimpleProperty createTestProperty() {
-        return new SimpleProperty() {
-            
-            private final Map<String, String> properties = new HashMap<String, String>();
-            
-            @Override
-            public void setProperty(String key, String value) {
-                this.properties.put(key, value);
-            }
-            
-            @Override
-            public String getProperty(String key) {
-                return this.properties.get(key);
-            }
-            
-            @Override
-            public String getProperty(String key, String defaultValue) {
-                if (this.properties.containsKey(key)) {
-                    return this.properties.get(key);
-                } else {
-                    return defaultValue;
-                }
-            }
-        };
+        return new PropertySnapshot(new Properties());
     }
     
     private static SimpleProperty createTestProperty(String testMainClass) {

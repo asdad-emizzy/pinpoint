@@ -19,7 +19,9 @@ package com.navercorp.pinpoint.bootstrap.instrument;
 
 import com.navercorp.pinpoint.bootstrap.config.ProfilerConfig;
 import com.navercorp.pinpoint.bootstrap.instrument.transformer.TransformCallback;
+import com.navercorp.pinpoint.bootstrap.instrument.transformer.TransformCallbackChecker;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
+import com.navercorp.pinpoint.common.util.Assert;
 
 import java.security.ProtectionDomain;
 
@@ -32,10 +34,10 @@ public class InstrumentorDelegate implements Instrumentor {
 
     public InstrumentorDelegate(ProfilerConfig profilerConfig, InstrumentContext instrumentContext) {
         if (profilerConfig == null) {
-            throw new NullPointerException("profilerConfig must not be null");
+            throw new NullPointerException("profilerConfig");
         }
         if (instrumentContext == null) {
-            throw new NullPointerException("instrumentContext must not be null");
+            throw new NullPointerException("instrumentContext");
         }
         this.profilerConfig = profilerConfig;
         this.instrumentContext = instrumentContext;
@@ -79,6 +81,15 @@ public class InstrumentorDelegate implements Instrumentor {
     @Override
     public void transform(ClassLoader classLoader, String targetClassName, TransformCallback transformCallback) {
         instrumentContext.addClassFileTransformer(classLoader, targetClassName, transformCallback);
+    }
+
+    @Override
+    public void transform(ClassLoader classLoader, String targetClassName, Class<? extends TransformCallback> transformCallbackClass) {
+        Assert.requireNonNull(transformCallbackClass, "transformCallback");
+        TransformCallbackChecker.validate(transformCallbackClass);
+
+        final String transformCallbackClassName = transformCallbackClass.getName();
+        instrumentContext.addClassFileTransformer(classLoader, targetClassName, transformCallbackClassName);
     }
 
     @Override

@@ -22,7 +22,9 @@ import com.navercorp.pinpoint.bootstrap.instrument.InstrumentClass;
 import com.navercorp.pinpoint.bootstrap.instrument.InstrumentContext;
 import com.navercorp.pinpoint.bootstrap.instrument.Instrumentor;
 import com.navercorp.pinpoint.bootstrap.instrument.transformer.TransformCallback;
+import com.navercorp.pinpoint.bootstrap.instrument.transformer.TransformCallbackChecker;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
+import com.navercorp.pinpoint.common.util.Assert;
 
 import java.security.ProtectionDomain;
 
@@ -35,14 +37,8 @@ public class GuardInstrumentor implements Instrumentor {
     private boolean closed = false;
 
     public GuardInstrumentor(ProfilerConfig profilerConfig, InstrumentContext instrumentContext) {
-        if (profilerConfig == null) {
-            throw new NullPointerException("profilerConfig must not be null");
-        }
-        if (instrumentContext == null) {
-            throw new NullPointerException("instrumentContext must not be null");
-        }
-        this.profilerConfig = profilerConfig;
-        this.instrumentContext = instrumentContext;
+        this.profilerConfig = Assert.requireNonNull(profilerConfig, "profilerConfig");
+        this.instrumentContext = Assert.requireNonNull(instrumentContext, "instrumentContext");
     }
 
     @Override
@@ -91,6 +87,16 @@ public class GuardInstrumentor implements Instrumentor {
     public void transform(ClassLoader classLoader, String targetClassName, TransformCallback transformCallback) {
         checkOpen();
         instrumentContext.addClassFileTransformer(classLoader, targetClassName, transformCallback);
+    }
+
+    @Override
+    public void transform(ClassLoader classLoader, String targetClassName, Class<? extends TransformCallback> transformCallback) {
+        checkOpen();
+        Assert.requireNonNull(transformCallback, "transformCallback");
+        TransformCallbackChecker.validate(transformCallback);
+
+        final String transformCallbackClassName = transformCallback.getName();
+        instrumentContext.addClassFileTransformer(classLoader, targetClassName, transformCallbackClassName);
     }
 
     @Override

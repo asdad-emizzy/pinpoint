@@ -17,10 +17,12 @@
 
 package com.navercorp.pinpoint.test.classloader;
 
+import com.navercorp.pinpoint.common.util.IOUtils;
 import com.navercorp.pinpoint.profiler.util.JavaAssistUtils;
-import com.navercorp.pinpoint.test.util.BytecodeUtils;
 
 import java.io.InputStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.List;
 import java.util.Set;
@@ -44,6 +46,12 @@ public class TransformClassLoader extends ClassLoader {
 
     private final Set<String> notDefinedClass = new CopyOnWriteArraySet<String>();
     private final List<String> notDefinedPackages = new CopyOnWriteArrayList<String>();
+
+    private final static ProtectionDomain DEFAULT_DOMAIN = (ProtectionDomain) AccessController.doPrivileged(new PrivilegedAction() {
+        public Object run() {
+            return TransformClassLoader.class.getProtectionDomain();
+        }
+    });
 
     private Translator translator;
     private ProtectionDomain domain;
@@ -183,12 +191,12 @@ public class TransformClassLoader extends ClassLoader {
                     return null;
                 }
             } else {
-                String jarname = "/" + JavaAssistUtils.javaNameToJvmName(name) + ".class";
+                String jarname = "/" + JavaAssistUtils.javaClassNameToJvmResourceName(name);
                 InputStream in = this.getClass().getClassLoader().getResourceAsStream(jarname);
                 if (in == null) {
                     return null;
                 }
-                classfile = BytecodeUtils.readClass(in, true);
+                classfile = IOUtils.toByteArray(in);
             }
         } catch (Exception e) {
             throw new ClassNotFoundException("caught an exception while obtaining a class file for " + name, e);
@@ -210,7 +218,7 @@ public class TransformClassLoader extends ClassLoader {
             if (logger.isLoggable(Level.FINE)) {
                 this.logger.fine("defineClass:" + name);
             }
-            return defineClass(name, classfile, 0, classfile.length);
+            return defineClass(name, classfile, 0, classfile.length, DEFAULT_DOMAIN);
         }
         else {
             if (logger.isLoggable(Level.FINE)) {

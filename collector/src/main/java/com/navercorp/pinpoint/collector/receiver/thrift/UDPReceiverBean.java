@@ -16,9 +16,11 @@
 
 package com.navercorp.pinpoint.collector.receiver.thrift;
 
+import com.navercorp.pinpoint.collector.receiver.DispatchHandler;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.BaseUDPHandlerFactory;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.NetworkAvailabilityCheckPacketFilter;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.PacketHandlerFactory;
+import com.navercorp.pinpoint.collector.receiver.thrift.udp.ReusePortSocketOptionHolder;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.TBaseFilter;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.TBaseFilterChain;
 import com.navercorp.pinpoint.collector.receiver.thrift.udp.UDPReceiver;
@@ -27,6 +29,7 @@ import com.navercorp.pinpoint.collector.util.DefaultObjectPool;
 import com.navercorp.pinpoint.collector.util.ObjectPool;
 import com.navercorp.pinpoint.collector.util.ObjectPoolFactory;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
+
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -50,13 +53,15 @@ public class UDPReceiverBean implements InitializingBean, DisposableBean, BeanNa
     private String bindIp;
     private int bindPort;
     private int udpBufferSize;
+    private boolean reusePort = false;
+    private int socketCount = -1;
 
     private UDPReceiver udpReceiver;
     private Executor executor;
 
     private DispatchHandler dispatchHandler;
     private AddressFilter addressFilter;
-    private int datagramPoolSize = 1024*4;
+    private int datagramPoolSize = 1024 * 4;
 
 
     @Override
@@ -64,11 +69,11 @@ public class UDPReceiverBean implements InitializingBean, DisposableBean, BeanNa
         if (!enable) {
             return;
         }
-        Objects.requireNonNull(beanName, "beanName must not be null");
-        Objects.requireNonNull(bindIp, "bindIp must not be null");
-        Objects.requireNonNull(dispatchHandler, "dispatchHandler must not be null");
-        Objects.requireNonNull(addressFilter, "addressFilter must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
+        Objects.requireNonNull(beanName, "beanName");
+        Objects.requireNonNull(bindIp, "bindIp");
+        Objects.requireNonNull(dispatchHandler, "dispatchHandler");
+        Objects.requireNonNull(addressFilter, "addressFilter");
+        Objects.requireNonNull(executor, "executor");
 
         udpReceiver = createUdpReceiver(beanName, this.bindIp, bindPort, udpBufferSize, executor, dispatchHandler, addressFilter);
         udpReceiver.start();
@@ -84,9 +89,14 @@ public class UDPReceiverBean implements InitializingBean, DisposableBean, BeanNa
 
         ObjectPoolFactory<DatagramPacket> packetFactory = new DatagramPacketFactory();
         ObjectPool<DatagramPacket> pool = new DefaultObjectPool<>(packetFactory, datagramPoolSize);
-        return new UDPReceiver(name, packetHandlerFactory, executor, udpBufferSize, bindAddress, pool);
-    }
 
+        if (reusePort) {
+            ReusePortSocketOptionHolder reusePortSocketOption = ReusePortSocketOptionHolder.create(socketCount);
+            return new UDPReceiver(name, packetHandlerFactory, executor, udpBufferSize, bindAddress, reusePortSocketOption, pool);
+        } else {
+            return new UDPReceiver(name, packetHandlerFactory, executor, udpBufferSize, bindAddress, pool);
+        }
+    }
 
     private TBaseFilterChain newTBaseFilterChain() {
         List<TBaseFilter> tBaseFilters = Collections.singletonList(new NetworkAvailabilityCheckPacketFilter());
@@ -106,19 +116,19 @@ public class UDPReceiverBean implements InitializingBean, DisposableBean, BeanNa
     }
 
     public void setExecutor(Executor executor) {
-        this.executor = Objects.requireNonNull(executor, "executor must not be null");
+        this.executor = Objects.requireNonNull(executor, "executor");
     }
 
     public void setDispatchHandler(DispatchHandler dispatchHandler) {
-        this.dispatchHandler = Objects.requireNonNull(dispatchHandler, "dispatchHandler must not be null");
+        this.dispatchHandler = Objects.requireNonNull(dispatchHandler, "dispatchHandler");
     }
 
     public void setAddressFilter(AddressFilter addressFilter) {
-        this.addressFilter = Objects.requireNonNull(addressFilter, "addressFilter must not be null");
+        this.addressFilter = Objects.requireNonNull(addressFilter, "addressFilter");
     }
 
     public void setBindIp(String bindIp) {
-        this.bindIp = Objects.requireNonNull(bindIp, "bindIp must not be null");
+        this.bindIp = Objects.requireNonNull(bindIp, "bindIp");
     }
 
     public void setBindPort(int bindPort) {
@@ -127,6 +137,14 @@ public class UDPReceiverBean implements InitializingBean, DisposableBean, BeanNa
 
     public void setUdpBufferSize(int udpBufferSize) {
         this.udpBufferSize = udpBufferSize;
+    }
+
+    public void setReusePort(boolean reusePort) {
+        this.reusePort = reusePort;
+    }
+
+    public void setSocketCount(int socketCount) {
+        this.socketCount = socketCount;
     }
 
     public void setDatagramPoolSize(int datagramPoolSize) {

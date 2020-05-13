@@ -60,7 +60,7 @@ public final class JavaAssistUtils {
 
     public static String javaTypeToJvmSignature(String[] javaTypeArray, String returnType) {
         if (returnType == null) {
-            throw new NullPointerException("returnType must not be null");
+            throw new NullPointerException("returnType");
         }
         final String parameterSignature = javaTypeToJvmSignature(javaTypeArray);
         final StringBuilder sb = new StringBuilder(parameterSignature.length() + 8);
@@ -86,7 +86,7 @@ public final class JavaAssistUtils {
 
     public static String toJvmSignature(String javaType) {
         if (javaType == null) {
-            throw new NullPointerException("javaType must not be null");
+            throw new NullPointerException("javaType");
         }
         if (javaType.isEmpty()) {
             throw new IllegalArgumentException("invalid javaType. \"\"");
@@ -124,30 +124,47 @@ public final class JavaAssistUtils {
 
     /**
      * java.lang.String -> java/lang/String
+     *
      * @param javaName
      * @return
      */
     public static String javaNameToJvmName(String javaName) {
         if (javaName == null) {
-            throw new NullPointerException("javaName must not be null");
+            throw new NullPointerException("javaName");
         }
         return javaName.replace('.', '/');
     }
 
     /**
      * java/lang/String -> java.lang.String
+     *
      * @param jvmName
      * @return
      */
     public static String jvmNameToJavaName(String jvmName) {
         if (jvmName == null) {
-            throw new NullPointerException("jvmName must not be null");
+            throw new NullPointerException("jvmName");
         }
         return jvmName.replace('/', '.');
     }
 
+
+    /**
+     * java.lang.String -> java/lang/String.class
+     *
+     * @param javaName
+     * @return
+     */
+    public static String javaClassNameToJvmResourceName(String javaName) {
+        if (javaName == null) {
+            throw new NullPointerException("javaName");
+        }
+        return javaName.replace('.', '/').concat(".class");
+    }
+
     /**
      * java/lang/String -> java.lang.String
+     *
      * @param jvmNameArray
      * @return
      */
@@ -177,7 +194,7 @@ public final class JavaAssistUtils {
 
     static int getJavaObjectArraySize(String javaType) {
         if (javaType == null) {
-            throw new NullPointerException("javaType must not be null");
+            throw new NullPointerException("javaType");
         }
         if (javaType.isEmpty()) {
             return 0;
@@ -202,7 +219,7 @@ public final class JavaAssistUtils {
 
     public static String[] parseParameterSignature(String signature) {
         if (signature == null) {
-            throw new NullPointerException("signature must not be null");
+            throw new NullPointerException("signature");
         }
         final List<String> parameterSignatureList = splitParameterSignature(signature);
         if (parameterSignatureList.isEmpty()) {
@@ -230,7 +247,7 @@ public final class JavaAssistUtils {
     // '.' '$' '[' ']' => '_'
     public static String javaClassNameToVariableName(String javaClassName) {
         if (javaClassName == null) {
-            throw new NullPointerException("java class name must not be null");
+            throw new NullPointerException("java class name");
         }
 
         return javaClassName.replace('.', '_').replace('$', '_').replace('[', '_').replace(']', '_');
@@ -349,20 +366,20 @@ public final class JavaAssistUtils {
         }
         return paramsString;
     }
-    
+
     public static String[] toPinpointParameterType(Class<?>[] paramClasses) {
         if (paramClasses == null) {
             return null;
         }
-        
+
         String[] paramsString = new String[paramClasses.length];
         for (int i = 0; i < paramClasses.length; i++) {
             paramsString[i] = toPinpointParameterType(paramClasses[i]);
         }
-        
+
         return paramsString;
     }
-    
+
     public static String toPinpointParameterType(Class<?> type) {
         if (type.isArray()) {
             return toPinpointParameterType(type.getComponentType()) + "[]";

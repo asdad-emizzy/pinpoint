@@ -1,21 +1,22 @@
 /*
- *  Copyright 2016 NAVER Corp.
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Copyright 2019 NAVER Corp.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.navercorp.pinpoint.web.scatter;
 
-import com.navercorp.pinpoint.common.util.TransactionId;
+import com.navercorp.pinpoint.common.profiler.util.TransactionId;
 import com.navercorp.pinpoint.web.vo.scatter.Dot;
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,14 +46,14 @@ public class ScatterDataTest {
         int xGroupUnit = 100;
         int yGroupUnit = 100;
 
-        ScatterData scatterData = new ScatterData(from, to, xGroupUnit, yGroupUnit);
+        ScatterDataBuilder builder = new ScatterDataBuilder(from, to, xGroupUnit, yGroupUnit);
         List<Dot> dotList = createDotList(agentId, transactionAgentId, count, from);
 
         for (Dot dot : dotList) {
-            scatterData.addDot(dot);
+            builder.addDot(dot);
         }
 
-        List<Dot> dots = extractDotList(scatterData);
+        List<Dot> dots = extractDotList(builder.build());
         Assert.assertEquals(count, dots.size());
     }
 
@@ -63,7 +64,7 @@ public class ScatterDataTest {
         int xGroupUnit = 100;
         int yGroupUnit = 100;
 
-        ScatterData scatterData = new ScatterData(from, to, xGroupUnit, yGroupUnit);
+        ScatterDataBuilder builder = new ScatterDataBuilder(from, to, xGroupUnit, yGroupUnit);
 
         long currentTime = System.currentTimeMillis();
 
@@ -78,8 +79,9 @@ public class ScatterDataTest {
         Dot dot1 = new Dot(transactionId1, acceptedTime2, executionTime, 0, agentId);
         Dot dot2 = new Dot(transactionId2, acceptedTime2, executionTime, 1, agentId);
 
-        scatterData.addDot(dot1);
-        scatterData.addDot(dot2);
+        builder.addDot(dot1);
+        builder.addDot(dot2);
+        ScatterData scatterData = builder.build();
 
         Map<Long, DotGroups> scatterDataMap = scatterData.getScatterDataMap();
         Collection<DotGroups> values = scatterDataMap.values();
@@ -98,7 +100,7 @@ public class ScatterDataTest {
         int xGroupUnit = 100;
         int yGroupUnit = 100;
 
-        ScatterData scatterData = new ScatterData(from, to, xGroupUnit, yGroupUnit);
+        ScatterDataBuilder builder = new ScatterDataBuilder(from, to, xGroupUnit, yGroupUnit);
 
         long currentTime = System.currentTimeMillis();
 
@@ -112,10 +114,10 @@ public class ScatterDataTest {
         Dot dot1 = new Dot(transactionId, acceptedTime2, executionTime, 0, agentId);
         Dot dot2 = new Dot(transactionId, acceptedTime2, executionTime, 0, agentId);
 
-        scatterData.addDot(dot1);
-        scatterData.addDot(dot2);
+        builder.addDot(dot1);
+        builder.addDot(dot2);
 
-        List<Dot> dots = extractDotList(scatterData);
+        List<Dot> dots = extractDotList(builder.build());
         Assert.assertEquals(2, dots.size());
     }
 
@@ -128,15 +130,15 @@ public class ScatterDataTest {
         int xGroupUnit = 100;
         int yGroupUnit = 100;
 
-        ScatterData scatterData = new ScatterData(from, to, xGroupUnit, yGroupUnit);
+        ScatterDataBuilder builder = new ScatterDataBuilder(from, to, xGroupUnit, yGroupUnit);
         List<Dot> dotList = createDotList(agentId, transactionAgentId, count, from);
         for (Dot dot : dotList) {
-            ScatterData newScatterData = new ScatterData(from, to, xGroupUnit, yGroupUnit);
-            newScatterData.addDot(dot);
-            scatterData.merge(newScatterData);
+            ScatterDataBuilder newScatterDataBuilder = new ScatterDataBuilder(from, to, xGroupUnit, yGroupUnit);
+            newScatterDataBuilder.addDot(dot);
+            builder.merge(newScatterDataBuilder.build());
         }
 
-        List<Dot> dots = extractDotList(scatterData);
+        List<Dot> dots = extractDotList(builder.build());
         Assert.assertEquals(count, dots.size());
     }
 

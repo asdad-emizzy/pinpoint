@@ -17,7 +17,6 @@ package com.navercorp.pinpoint.bootstrap.instrument.transformer;
 
 import com.navercorp.pinpoint.bootstrap.instrument.InstrumentContext;
 import com.navercorp.pinpoint.bootstrap.instrument.matcher.Matcher;
-import com.navercorp.pinpoint.bootstrap.instrument.matcher.Matchers;
 import com.navercorp.pinpoint.common.annotations.InterfaceStability;
 import com.navercorp.pinpoint.common.util.Assert;
 
@@ -25,27 +24,30 @@ import com.navercorp.pinpoint.common.util.Assert;
  * @author jaehong.kim
  */
 @InterfaceStability.Unstable
-public class MatchableTransformTemplate implements TransformOperations {
-    private final InstrumentContext instrumentContext;
+public class MatchableTransformTemplate extends TransformTemplate {
 
     public MatchableTransformTemplate(InstrumentContext instrumentContext) {
-        if (instrumentContext == null) {
-            throw new NullPointerException("instrumentContext must not be null");
-        }
-        this.instrumentContext = instrumentContext;
+        super(instrumentContext);
     }
 
-    @Override
-    public void transform(String className, TransformCallback transformCallback) {
-        Assert.requireNonNull(className, "className must not be null");
-        Assert.requireNonNull(transformCallback, "transformCallback must not be null");
-        final Matcher matcher = Matchers.newClassNameMatcher(className);
-        this.instrumentContext.addClassFileTransformer(matcher, transformCallback);
-    }
 
     public void transform(final Matcher matcher, TransformCallback transformCallback) {
-        Assert.requireNonNull(matcher, "matcher must not be null");
-        Assert.requireNonNull(transformCallback, "transformCallback must not be null");
-        this.instrumentContext.addClassFileTransformer(matcher, transformCallback);
+        Assert.requireNonNull(matcher, "matcher");
+        Assert.requireNonNull(transformCallback, "transformCallback");
+        final InstrumentContext instrumentContext = getInstrumentContext();
+        instrumentContext.addClassFileTransformer(matcher, transformCallback);
     }
+
+    public void transform(final Matcher matcher, Class<? extends TransformCallback> transformCallbackClass) {
+        Assert.requireNonNull(matcher, "matcher");
+        Assert.requireNonNull(transformCallbackClass, "transformCallbackClass");
+
+        TransformCallbackChecker.validate(transformCallbackClass);
+
+        // release class reference
+        final String transformCallbackName = transformCallbackClass.getName();
+        final InstrumentContext instrumentContext = getInstrumentContext();
+        instrumentContext.addClassFileTransformer(matcher, transformCallbackName);
+    }
+
 }

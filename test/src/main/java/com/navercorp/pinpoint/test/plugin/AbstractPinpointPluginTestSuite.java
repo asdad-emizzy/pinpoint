@@ -16,14 +16,10 @@
 
 package com.navercorp.pinpoint.test.plugin;
 
-import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
+import com.navercorp.pinpoint.common.Version;
+import com.navercorp.pinpoint.common.util.ArrayUtils;
+import com.navercorp.pinpoint.common.util.SystemProperty;
+import com.navercorp.pinpoint.exception.PinpointException;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.DependencyResolutionException;
 import org.junit.internal.runners.statements.RunAfters;
@@ -34,28 +30,49 @@ import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 
-import com.navercorp.pinpoint.common.Version;
-import com.navercorp.pinpoint.common.util.SystemProperty;
-import com.navercorp.pinpoint.exception.PinpointException;
+import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public abstract class AbstractPinpointPluginTestSuite extends Suite {
     private static final int NO_JVM_VERSION = -1;
-    
-    private static final String[] REQUIRED_CLASS_PATHS = new String[] {
-        "junit", // JUnit
-        "hamcrest-core", // for JUnit
-        "pinpoint-test", // pinpoint-test-{VERSION}.jar
-        "/test/target/classes" // pinpoint-test build output directory
+
+    private static final String[] REQUIRED_CLASS_PATHS = new String[]{
+            "junit", // JUnit
+            "hamcrest-core", // for JUnit
+            "pinpoint-test", // pinpoint-test-{VERSION}.jar
+            "/test/target/classes" // pinpoint-test build output directory
+    };
+
+    private static final String[] MAVEN_DEPENDENCY_CLASS_PATHS = new String[]{
+            "aether",
+            "apache/maven",
+            "guava",
+            "plexus",
+            "pinpoint-test",
+            "/test/target/classes" // pinpoint-test build output directory
     };
 
     private final List<String> requiredLibraries;
+    private final List<String> mavenDependencyLibraries;
     private final String testClassLocation;
 
     private final String agentJar;
+    private final String profile;
     private final String configFile;
     private final String[] jvmArguments;
     private final int[] jvmVersions;
     private final boolean debug;
+
+    private final List<String> importPluginIds;
 
     public AbstractPinpointPluginTestSuite(Class<?> testClass) throws InitializationError, ArtifactResolutionException, DependencyResolutionException {
         super(testClass, Collections.<Runner> emptyList());
@@ -66,17 +83,42 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
         PinpointConfig config = testClass.getAnnotation(PinpointConfig.class);
         this.configFile = config == null ? null : resolveConfigFileLocation(config.value());
 
+        PinpointProfile profile = testClass.getAnnotation(PinpointProfile.class);
+        this.profile = resolveProfile(profile);
+
         JvmArgument jvmArgument = testClass.getAnnotation(JvmArgument.class);
-        this.jvmArguments = jvmArgument == null ? new String[0] : jvmArgument.value();
+        this.jvmArguments = getJvmArguments(jvmArgument);
 
         JvmVersion jvmVersion = testClass.getAnnotation(JvmVersion.class);
         this.jvmVersions = jvmVersion == null ? new int[] { NO_JVM_VERSION } : jvmVersion.value();
 
-        this.requiredLibraries = resolveRequiredLibraries();
+        ImportPlugin importPlugin = testClass.getAnnotation(ImportPlugin.class);
+        this.importPluginIds = getImportPlugin(importPlugin);
+
+        this.requiredLibraries = getClassPathList(REQUIRED_CLASS_PATHS);
+        this.mavenDependencyLibraries = getClassPathList(MAVEN_DEPENDENCY_CLASS_PATHS);
         this.testClassLocation = resolveTestClassLocation(testClass);
         this.debug = isDebugMode();
     }
-    
+
+    private List<String> getImportPlugin(ImportPlugin importPlugin) {
+        if (importPlugin == null) {
+            return null;
+        }
+        String[] ids = importPlugin.value();
+        if (ArrayUtils.isEmpty(ids)) {
+            return null;
+        }
+        return Arrays.asList(ids);
+    }
+
+    private String[] getJvmArguments(JvmArgument jvmArgument) {
+        if (jvmArgument == null) {
+            return new String[0];
+        }
+        return jvmArgument.value();
+    }
+
     protected String getJavaExecutable(int version) {
         StringBuilder builder = new StringBuilder();
         
@@ -113,15 +155,16 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
         return toPathString(testClassLocation);
     }
 
-    private List<String> resolveRequiredLibraries() {
+
+    private List<String> getClassPathList(String[] classPathCandidates) {
         List<String> result = new ArrayList<String>();
-        
+
         ClassLoader cl = getClass().getClassLoader();
 
         while (true) {
             if (cl instanceof URLClassLoader) {
                 URLClassLoader ucl = ((URLClassLoader) cl);
-                List<String> requiredLibraries = findRequiredLibraries(ucl.getURLs());
+                Collection<String> requiredLibraries = findLibraries(ucl.getURLs(), classPathCandidates);
                 result.addAll(requiredLibraries);
             }
 
@@ -135,12 +178,11 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
         return result;
     }
 
-
-    private List<String> findRequiredLibraries(URL[] urls) {
-        final List<String> result = new ArrayList<String>();
+    private Collection<String> findLibraries(URL[] urls, String[] paths) {
+        final Set<String> result = new HashSet<String>();
         outer:
         for (URL url : urls) {
-            for (String required : REQUIRED_CLASS_PATHS) {
+            for (String required : paths) {
                 if (url.getFile().contains(required)) {
                     result.add(toPathString(url));
 
@@ -190,6 +232,13 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
         
         throw new PinpointException("Cannot find pinpoint configuration file: " + configFile);
     }
+
+    private String resolveProfile(PinpointProfile profile) {
+        if (profile == null) {
+            return PinpointProfile.DEFAULT_PROFILE;
+        }
+        return profile.value();
+    }
     
     private boolean isDebugMode() {
         return ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
@@ -210,7 +259,7 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
     @Override
     protected List<Runner> getChildren() {
         List<Runner> runners = new ArrayList<Runner>();
-        
+
         try {
             for (int ver : jvmVersions) {
                 String javaExe = getJavaExecutable(ver);
@@ -221,8 +270,11 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
                     System.out.println("Cannot find Java version " + ver + ". Skip test with Java " + ver);
                     continue;
                 }
-                
-                PinpointPluginTestContext context = new PinpointPluginTestContext(agentJar, configFile, requiredLibraries, getTestClass().getJavaClass(), testClassLocation, jvmArguments, debug, ver, javaExe); 
+
+                PinpointPluginTestContext context = new PinpointPluginTestContext(agentJar, profile,
+                        configFile, requiredLibraries, mavenDependencyLibraries,
+                        getTestClass().getJavaClass(), testClassLocation,
+                        jvmArguments, debug, ver, javaExe, importPluginIds);
                 
                 List<PinpointPluginTestInstance> cases = createTestCases(context);
                 
@@ -230,16 +282,29 @@ public abstract class AbstractPinpointPluginTestSuite extends Suite {
                     runners.add(new PinpointPluginTestRunner(context, c));
                 }
             }
+
+        } catch (InitializationError junitError) {
+            // handle MultipleFailureException ?
+            List<Throwable> causes = junitError.getCauses();
+            for (Throwable cause : causes) {
+                System.out.println("junit error Caused By:" + cause.getMessage());
+                cause.printStackTrace();
+            }
+            throw newTestError(junitError);
         } catch (Exception e) {
             System.out.println(e.getMessage());
-            throw new RuntimeException("Fail to create test runners", e);
+            throw newTestError(e);
         }
         
         if (runners.isEmpty()) {
             throw new RuntimeException("No test");
         }
-        
+
         return runners;
+    }
+
+    private RuntimeException newTestError(Exception e) {
+        return new RuntimeException("Fail to create test runners", e);
     }
     
     protected abstract List<PinpointPluginTestInstance> createTestCases(PinpointPluginTestContext context) throws Exception;

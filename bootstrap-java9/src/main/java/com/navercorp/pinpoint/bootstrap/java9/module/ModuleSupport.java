@@ -18,14 +18,19 @@ package com.navercorp.pinpoint.bootstrap.java9.module;
 
 
 import com.navercorp.pinpoint.bootstrap.module.JavaModule;
+import com.navercorp.pinpoint.bootstrap.module.Providers;
+import com.navercorp.pinpoint.common.util.JvmUtils;
+import com.navercorp.pinpoint.common.util.JvmVersion;
 import jdk.internal.module.Modules;
 
 import java.lang.instrument.Instrumentation;
 import java.net.URL;
-import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Woonduk Kang(emeroad)
+ * @author jaehong.kim - Add ServiceLoaderClassPathLookupHelper logic
  */
 public class ModuleSupport {
 
@@ -35,15 +40,20 @@ public class ModuleSupport {
 
     private final JavaModule javaBaseModule;
     private final JavaModule bootstrapModule;
+    private List<String> allowedProviders;
 
-
-    ModuleSupport(Instrumentation instrumentation) {
+    ModuleSupport(Instrumentation instrumentation, List<String> allowedProviders) {
         if (instrumentation == null) {
-            throw new NullPointerException("instrumentation must not be null");
+            throw new NullPointerException("instrumentation");
+        }
+        if (allowedProviders == null) {
+            throw new NullPointerException("allowedProviders");
         }
         this.instrumentation = instrumentation;
         this.javaBaseModule = wrapJavaModule(Object.class);
         this.bootstrapModule = wrapJavaModule(this.getClass());
+
+        this.allowedProviders = allowedProviders;
 
     }
 
@@ -65,7 +75,7 @@ public class ModuleSupport {
 
         final JavaModule agentModule = newAgentModule(classLoader, jarFileList);
 
-        prepareAgentModule(agentModule);
+        prepareAgentModule(classLoader, agentModule);
 
         addPermissionToLog4jModule(agentModule);
         addPermissionToGuiceModule(agentModule);
@@ -106,7 +116,7 @@ public class ModuleSupport {
     }
 
 
-    private void prepareAgentModule(JavaModule agentModule) {
+    private void prepareAgentModule(final ClassLoader classLoader, JavaModule agentModule) {
         JavaModule bootstrapModule = getBootstrapModule();
         // Error:class com.navercorp.pinpoint.bootstrap.AgentBootLoader$1 cannot access class com.navercorp.pinpoint.profiler.DefaultAgent (in module pinpoint.agent)
         // because module pinpoint.agent does not export com.navercorp.pinpoint.profiler to unnamed module @7bfcd12c
@@ -118,9 +128,17 @@ public class ModuleSupport {
         // at pinpoint.agent/pinpoint.agent/com.navercorp.pinpoint.profiler.instrument.classloading.URLClassLoaderHandler.<clinit>(URLClassLoaderHandler.java:44)
         JavaModule baseModule = getJavaBaseModule();
         baseModule.addOpens("java.net", agentModule);
+        // java.lang.reflect.InaccessibleObjectException: Unable to make private java.nio.DirectByteBuffer(long,int) accessible: module java.base does not "opens java.nio" to module pinpoint.agent
+        //   at java.base/java.lang.reflect.AccessibleObject.checkCanSetAccessible(AccessibleObject.java:337)
+        baseModule.addOpens("java.nio", agentModule);
 
         // for Java9DefineClass
         baseModule.addExports("jdk.internal.misc", agentModule);
+        final JvmVersion version = JvmUtils.getVersion();
+        if(version.onOrAfter(JvmVersion.JAVA_12)) {
+            baseModule.addExports("jdk.internal.access", agentModule);
+        }
+        agentModule.addReads(baseModule);
 
         final JavaModule instrumentModule = loadModule("java.instrument");
         agentModule.addReads(instrumentModule);
@@ -132,6 +150,10 @@ public class ModuleSupport {
         final JavaModule jdkManagement = loadModule("jdk.management");
         agentModule.addReads(jdkManagement);
 
+        // for grpc's NameResolverProvider
+        final JavaModule jdkUnsupported = loadModule("jdk.unsupported");
+        agentModule.addReads(jdkUnsupported);
+
 //        LongAdder
 //        final Module unsupportedModule = loadModule("jdk.unsupported");
 //        Set<Module> readModules = Set.of(instrumentModule, managementModule, jdkManagement, unsupportedModule);
@@ -140,11 +162,45 @@ public class ModuleSupport {
         Class<?> traceMataDataClass = forName("com.navercorp.pinpoint.common.trace.TraceMetadataProvider", bootstrapClassLoader);
         agentModule.addUses(traceMataDataClass);
 
-        Class<?> pluginClazz = forName( "com.navercorp.pinpoint.bootstrap.plugin.ProfilerPlugin", bootstrapClassLoader);
+
+        Class<?> pluginClazz = forName("com.navercorp.pinpoint.bootstrap.plugin.ProfilerPlugin", bootstrapClassLoader);
         agentModule.addUses(pluginClazz);
+
+        final String serviceClassName = "com.navercorp.pinpoint.profiler.context.recorder.proxy.ProxyRequestParserProvider";
+        Class<?> serviceClazz = forName(serviceClassName, classLoader);
+        agentModule.addUses(serviceClazz);
+
+        final String nameResolverProviderName = "io.grpc.NameResolverProvider";
+        Class<?> nameResolverProviderClazz = forName(nameResolverProviderName, classLoader);
+        agentModule.addUses(nameResolverProviderClazz);
+
+        List<Providers> providersList = agentModule.getProviders();
+        for (Providers providers : providersList) {
+            final String service = providers.getService();
+            if (isAllowedProvider(service)) {
+                logger.info("load provider:" + providers);
+                Class<?> serviceClass = forName(providers.getService(), classLoader);
+                List<Class<?>> providerClassList = loadProviderClassList(providers.getProviders(), classLoader);
+                agentModule.addProvides(serviceClass, providerClassList);
+            }
+        }
     }
 
+    public boolean isAllowedProvider(String serviceName) {
+        for (String allowedProvider : this.allowedProviders) {
+            return allowedProvider.equals(serviceName);
+        }
+        return false;
+    }
 
+    private List<Class<?>> loadProviderClassList(List<String> classNameList, ClassLoader classLoader) {
+        List<Class<?>> providerClassList = new ArrayList<>();
+        for (String providerClassName : classNameList) {
+            Class<?> providerClass = forName(providerClassName, classLoader);
+            providerClassList.add(providerClass);
+        }
+        return providerClassList;
+    }
 
     private Class<?> forName(String className, ClassLoader classLoader) {
         try {

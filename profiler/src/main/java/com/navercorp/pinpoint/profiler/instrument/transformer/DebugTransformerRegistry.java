@@ -17,17 +17,8 @@
 package com.navercorp.pinpoint.profiler.instrument.transformer;
 
 import com.navercorp.pinpoint.bootstrap.config.Filter;
-import com.navercorp.pinpoint.bootstrap.config.ProfilerConfig;
-import com.navercorp.pinpoint.bootstrap.instrument.DynamicTransformTrigger;
-import com.navercorp.pinpoint.bootstrap.instrument.InstrumentContext;
-import com.navercorp.pinpoint.profiler.instrument.InstrumentEngine;
-import com.navercorp.pinpoint.profiler.instrument.classloading.ClassInjector;
-import com.navercorp.pinpoint.profiler.instrument.classloading.DebugTransformerClassInjector;
+import com.navercorp.pinpoint.common.util.Assert;
 import com.navercorp.pinpoint.profiler.instrument.classreading.InternalClassMetadata;
-import com.navercorp.pinpoint.profiler.plugin.ClassFileTransformerLoader;
-import com.navercorp.pinpoint.profiler.plugin.PluginInstrumentContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.instrument.ClassFileTransformer;
 
@@ -39,28 +30,9 @@ public class DebugTransformerRegistry implements TransformerRegistry {
     private final Filter<String> debugTargetFilter;
     private final DebugTransformer debugTransformer;
 
-    public DebugTransformerRegistry(ProfilerConfig profilerConfig, InstrumentEngine instrumentEngine, DynamicTransformTrigger dynamicTransformTrigger) {
-        if (profilerConfig == null) {
-            throw new NullPointerException("profilerConfig must not be null");
-        }
-        if (instrumentEngine == null) {
-            throw new NullPointerException("instrumentEngine must not be null");
-        }
-        if (dynamicTransformTrigger == null) {
-            throw new NullPointerException("dynamicTransformTrigger must not be null");
-        }
-        this.debugTargetFilter = profilerConfig.getProfilableClassFilter();
-        this.debugTransformer = newDebugTransformer(profilerConfig, instrumentEngine, dynamicTransformTrigger);
-    }
-
-    private DebugTransformer newDebugTransformer(ProfilerConfig profilerConfig, InstrumentEngine instrumentEngine, DynamicTransformTrigger dynamicTransformTrigger) {
-
-        ClassInjector classInjector = new DebugTransformerClassInjector();
-
-        ClassFileTransformerLoader transformerRegistry = new ClassFileTransformerLoader(profilerConfig, dynamicTransformTrigger);
-        InstrumentContext debugContext = new PluginInstrumentContext(profilerConfig, instrumentEngine, dynamicTransformTrigger, classInjector, transformerRegistry);
-
-        return new DebugTransformer(instrumentEngine, debugContext);
+    public DebugTransformerRegistry(Filter<String> debugTargetFilter, DebugTransformer debugTransformer) {
+        this.debugTargetFilter = Assert.requireNonNull(debugTargetFilter, "debugTargetFilter");
+        this.debugTransformer = Assert.requireNonNull(debugTransformer, "debugTransformer");
     }
 
     @Override
@@ -71,7 +43,7 @@ public class DebugTransformerRegistry implements TransformerRegistry {
     @Override
     public ClassFileTransformer findTransformer(ClassLoader classLoader, String classInternalName, byte[] classFileBuffer, InternalClassMetadata classMetadata) {
         if (classInternalName == null) {
-            throw new NullPointerException("classInternalName must not be null");
+            throw new NullPointerException("classInternalName");
         }
         if (this.debugTargetFilter.filter(classInternalName)) {
             // Added to see if call stack view is OK on a test machine.

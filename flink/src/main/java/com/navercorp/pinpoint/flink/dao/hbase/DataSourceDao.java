@@ -15,18 +15,19 @@
  */
 package com.navercorp.pinpoint.flink.dao.hbase;
 
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
+import com.navercorp.pinpoint.common.hbase.HbaseTable;
 import com.navercorp.pinpoint.common.hbase.HbaseTemplate2;
 import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.ApplicationStatHbaseOperationFactory;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.join.DataSourceSerializer;
 import com.navercorp.pinpoint.common.server.bo.stat.join.JoinStatBo;
 import com.navercorp.pinpoint.common.server.bo.stat.join.StatType;
-import org.apache.commons.collections.CollectionUtils;
+
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.Date;
 import java.util.List;
@@ -43,11 +44,14 @@ public class DataSourceDao {
     private final DataSourceSerializer dataSourceSerializer;
     private final TableNameProvider tableNameProvider;
 
-    public DataSourceDao(HbaseTemplate2 hbaseTemplate2, ApplicationStatHbaseOperationFactory applicationStatHbaseOperationFactory, DataSourceSerializer dataSourceSerializer, TableNameProvider tableNameProvider) {
-        this.hbaseTemplate2 = Objects.requireNonNull(hbaseTemplate2, "hbaseTemplate2 must not be null");
-        this.applicationStatHbaseOperationFactory = Objects.requireNonNull(applicationStatHbaseOperationFactory, "applicationStatHbaseOperationFactory must not be null");
-        this.dataSourceSerializer = Objects.requireNonNull(dataSourceSerializer, "dataSourceSerializer must not be null");
-        this.tableNameProvider = Objects.requireNonNull(tableNameProvider, "tableNameProvider must not be null");
+    public DataSourceDao(@Qualifier("asyncPutHbaseTemplate") HbaseTemplate2 hbaseTemplate2,
+                         ApplicationStatHbaseOperationFactory applicationStatHbaseOperationFactory,
+                         DataSourceSerializer dataSourceSerializer,
+                         TableNameProvider tableNameProvider) {
+        this.hbaseTemplate2 = Objects.requireNonNull(hbaseTemplate2, "hbaseTemplate2");
+        this.applicationStatHbaseOperationFactory = Objects.requireNonNull(applicationStatHbaseOperationFactory, "applicationStatHbaseOperationFactory");
+        this.dataSourceSerializer = Objects.requireNonNull(dataSourceSerializer, "dataSourceSerializer");
+        this.tableNameProvider = Objects.requireNonNull(tableNameProvider, "tableNameProvider");
     }
 
     public void insert(String id, long timestamp, List<JoinStatBo> joinResponseTimeBoList, StatType statType) {
@@ -56,11 +60,8 @@ public class DataSourceDao {
         }
         List<Put> responseTimePuts = applicationStatHbaseOperationFactory.createPuts(id, joinResponseTimeBoList, statType, dataSourceSerializer);
         if (!responseTimePuts.isEmpty()) {
-            TableName applicationStatAggreTableName = tableNameProvider.getTableName(HBaseTables.APPLICATION_STAT_AGGRE_STR);
-            List<Put> rejectedPuts = hbaseTemplate2.asyncPut(applicationStatAggreTableName, responseTimePuts);
-            if (CollectionUtils.isNotEmpty(rejectedPuts)) {
-                hbaseTemplate2.put(applicationStatAggreTableName, rejectedPuts);
-            }
+            TableName applicationStatAggreTableName = tableNameProvider.getTableName(HbaseTable.APPLICATION_STAT_AGGRE);
+            hbaseTemplate2.asyncPut(applicationStatAggreTableName, responseTimePuts);
         }
     }
 }

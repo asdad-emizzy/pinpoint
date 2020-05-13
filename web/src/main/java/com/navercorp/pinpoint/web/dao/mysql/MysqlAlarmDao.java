@@ -16,6 +16,7 @@
 package com.navercorp.pinpoint.web.dao.mysql;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,10 +36,12 @@ public class MysqlAlarmDao implements AlarmDao {
 
     private static final String NAMESPACE = AlarmDao.class.getPackage().getName() + "." + AlarmDao.class.getSimpleName() + ".";
     
-    @Autowired
-    @Qualifier("sqlSessionTemplate")
-    private SqlSessionTemplate sqlSessionTemplate;
-    
+    private final SqlSessionTemplate sqlSessionTemplate;
+
+    public MysqlAlarmDao(@Qualifier("sqlSessionTemplate") SqlSessionTemplate sqlSessionTemplate) {
+        this.sqlSessionTemplate = Objects.requireNonNull(sqlSessionTemplate, "sqlSessionTemplate");
+    }
+
     @Override
     public String insertRule(Rule rule) {
         sqlSessionTemplate.insert(NAMESPACE + "insertRule", rule);
@@ -81,8 +84,8 @@ public class MysqlAlarmDao implements AlarmDao {
     }
 
     @Override
-    public void deleteCheckerResult(CheckerResult checkerResult) {
-        sqlSessionTemplate.delete(NAMESPACE + "deleteCheckerResult", checkerResult);
+    public void deleteCheckerResult(String ruleId) {
+        sqlSessionTemplate.delete(NAMESPACE + "deleteCheckerResult", ruleId);
     }
 
     @Override

@@ -14,10 +14,10 @@
  */
 package com.navercorp.pinpoint.plugin.websphere;
 
-import static com.navercorp.pinpoint.common.trace.ServiceTypeProperty.*;
-
 import com.navercorp.pinpoint.common.trace.ServiceType;
 import com.navercorp.pinpoint.common.trace.ServiceTypeFactory;
+
+import static com.navercorp.pinpoint.common.trace.ServiceTypeProperty.RECORD_STATISTICS;
 
 /**
  * @author sjmittal
@@ -28,5 +28,4 @@ public final class WebsphereConstants {
 
     public static final ServiceType WEBSPHERE = ServiceTypeFactory.of(1060, "WEBSPHERE", RECORD_STATISTICS);
     public static final ServiceType WEBSPHERE_METHOD = ServiceTypeFactory.of(1061, "WEBSPHERE_METHOD");
-    public static final String STATUS_CODE_ACCESSOR = "com.navercorp.pinpoint.plugin.websphere.StatusCodeAccessor";
 }

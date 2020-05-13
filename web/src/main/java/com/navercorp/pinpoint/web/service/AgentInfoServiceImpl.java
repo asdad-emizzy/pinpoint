@@ -47,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +54,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -66,23 +66,29 @@ public class AgentInfoServiceImpl implements AgentInfoService {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private AgentEventService agentEventService;
+    private final AgentEventService agentEventService;
 
-    @Autowired
-    private AgentWarningStatService agentWarningStatService;
+    private final AgentWarningStatService agentWarningStatService;
 
-    @Autowired
-    private ApplicationIndexDao applicationIndexDao;
+    private final ApplicationIndexDao applicationIndexDao;
 
-    @Autowired
-    private AgentInfoDao agentInfoDao;
+    private final AgentInfoDao agentInfoDao;
 
-    @Autowired
-    private AgentLifeCycleDao agentLifeCycleDao;
+    private final AgentLifeCycleDao agentLifeCycleDao;
 
-    @Autowired
-    private AgentDownloadInfoDao agentDownloadInfoDao;
+    private final AgentDownloadInfoDao agentDownloadInfoDao;
+
+    public AgentInfoServiceImpl(AgentEventService agentEventService,
+                                AgentWarningStatService agentWarningStatService, ApplicationIndexDao applicationIndexDao,
+                                AgentInfoDao agentInfoDao, AgentLifeCycleDao agentLifeCycleDao,
+                                AgentDownloadInfoDao agentDownloadInfoDao) {
+        this.agentEventService = Objects.requireNonNull(agentEventService, "agentEventService");
+        this.agentWarningStatService = Objects.requireNonNull(agentWarningStatService, "agentWarningStatService");
+        this.applicationIndexDao = Objects.requireNonNull(applicationIndexDao, "applicationIndexDao");
+        this.agentInfoDao = Objects.requireNonNull(agentInfoDao, "agentInfoDao");
+        this.agentLifeCycleDao = Objects.requireNonNull(agentLifeCycleDao, "agentLifeCycleDao");
+        this.agentDownloadInfoDao = Objects.requireNonNull(agentDownloadInfoDao, "agentDownloadInfoDao");
+    }
 
     @Override
     public ApplicationAgentsList getAllApplicationAgentsList(ApplicationAgentsList.Filter filter, long timestamp) {
@@ -98,10 +104,10 @@ public class AgentInfoServiceImpl implements AgentInfoService {
     @Override
     public ApplicationAgentsList getApplicationAgentsList(ApplicationAgentsList.GroupBy groupBy, ApplicationAgentsList.Filter filter, String applicationName, long timestamp) {
         if (applicationName == null) {
-            throw new NullPointerException("applicationName must not be null");
+            throw new NullPointerException("applicationName");
         }
         if (groupBy == null) {
-            throw new NullPointerException("groupBy must not be null");
+            throw new NullPointerException("groupBy");
         }
         ApplicationAgentsList applicationAgentsList = new ApplicationAgentsList(groupBy, filter);
         Set<AgentInfo> agentInfos = getAgentsByApplicationName(applicationName, timestamp);
@@ -164,7 +170,7 @@ public class AgentInfoServiceImpl implements AgentInfoService {
     @Override
     public Set<AgentInfo> getAgentsByApplicationNameWithoutStatus(String applicationName, long timestamp) {
         if (applicationName == null) {
-            throw new NullPointerException("applicationName must not be null");
+            throw new NullPointerException("applicationName");
         }
         if (timestamp < 0) {
             throw new IllegalArgumentException("timestamp must not be less than 0");
@@ -202,7 +208,7 @@ public class AgentInfoServiceImpl implements AgentInfoService {
     @Override
     public AgentInfo getAgentInfo(String agentId, long timestamp) {
         if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
+            throw new NullPointerException("agentId");
         }
         if (timestamp < 0) {
             throw new IllegalArgumentException("timestamp must not be less than 0");
@@ -217,7 +223,7 @@ public class AgentInfoServiceImpl implements AgentInfoService {
     @Override
     public AgentStatus getAgentStatus(String agentId, long timestamp) {
         if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
+            throw new NullPointerException("agentId");
         }
         if (timestamp < 0) {
             throw new IllegalArgumentException("timestamp must not be less than 0");
@@ -232,8 +238,8 @@ public class AgentInfoServiceImpl implements AgentInfoService {
 
     @Override
     public InspectorTimeline getAgentStatusTimeline(String agentId, Range range, int... excludeAgentEventTypeCodes) {
-        Assert.notNull(agentId, "agentId must not be null");
-        Assert.notNull(range, "range must not be null");
+        Objects.requireNonNull(agentId, "agentId");
+        Objects.requireNonNull(range, "range");
 
         AgentStatus initialStatus = getAgentStatus(agentId, range.getFrom());
         List<AgentEvent> agentEvents = agentEventService.getAgentEvents(agentId, range);

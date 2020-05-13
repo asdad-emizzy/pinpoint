@@ -17,20 +17,24 @@
 package com.navercorp.pinpoint.collector.dao.hbase.stat;
 
 import com.navercorp.pinpoint.collector.dao.AgentStatDaoV2;
-import com.navercorp.pinpoint.common.hbase.HBaseTables;
+import com.navercorp.pinpoint.collector.util.CollectorUtils;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
+import com.navercorp.pinpoint.common.hbase.HbaseTable;
 import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.AgentStatHbaseOperationFactory;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.DirectBufferSerializer;
 import com.navercorp.pinpoint.common.server.bo.stat.AgentStatType;
 import com.navercorp.pinpoint.common.server.bo.stat.DirectBufferBo;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Roy Kim
@@ -38,6 +42,7 @@ import java.util.List;
 @Repository
 public class HbaseDirectBufferDao implements AgentStatDaoV2<DirectBufferBo> {
 
+    @Qualifier("asyncPutHbaseTemplate")
     @Autowired
     private HbaseOperations2 hbaseTemplate;
 
@@ -52,19 +57,17 @@ public class HbaseDirectBufferDao implements AgentStatDaoV2<DirectBufferBo> {
 
     @Override
     public void insert(String agentId, List<DirectBufferBo> directBufferBos) {
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(agentId, "agentId");
+        // Assert agentId
+        CollectorUtils.checkAgentId(agentId);
+
         if (CollectionUtils.isEmpty(directBufferBos)) {
             return;
         }
         List<Put> directBufferPuts = this.agentStatHbaseOperationFactory.createPuts(agentId, AgentStatType.DIRECT_BUFFER, directBufferBos, this.directBufferSerializer);
         if (!directBufferPuts.isEmpty()) {
-            TableName agentStatTableName = tableNameProvider.getTableName(HBaseTables.AGENT_STAT_VER2_STR);
-            List<Put> rejectedPuts = this.hbaseTemplate.asyncPut(agentStatTableName, directBufferPuts);
-            if (CollectionUtils.isNotEmpty(rejectedPuts)) {
-                this.hbaseTemplate.put(agentStatTableName, rejectedPuts);
-            }
+            TableName agentStatTableName = tableNameProvider.getTableName(HbaseTable.AGENT_STAT_VER2);
+            this.hbaseTemplate.asyncPut(agentStatTableName, directBufferPuts);
         }
     }
 }

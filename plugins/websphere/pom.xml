@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
   ~ Copyright 2018 NAVER Corp.
   ~
@@ -19,9 +20,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.navercorp.pinpoint</groupId>
-        <artifactId>pinpoint</artifactId>
-        <relativePath>../..</relativePath>
-        <version>1.8.1-SNAPSHOT</version>
+        <artifactId>pinpoint-plugins</artifactId>
+        <version>2.0.3-SNAPSHOT</version>
     </parent>
 
     <artifactId>pinpoint-websphere-plugin</artifactId>

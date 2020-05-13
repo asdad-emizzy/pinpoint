@@ -18,7 +18,7 @@ package com.navercorp.pinpoint.web.service;
 
 import com.navercorp.pinpoint.common.server.bo.SpanBo;
 import com.navercorp.pinpoint.common.server.bo.SpanEventBo;
-import com.navercorp.pinpoint.common.service.ServiceTypeRegistryService;
+import com.navercorp.pinpoint.loader.service.ServiceTypeRegistryService;
 import com.navercorp.pinpoint.common.trace.HistogramSchema;
 import com.navercorp.pinpoint.common.trace.HistogramSlot;
 import com.navercorp.pinpoint.common.trace.ServiceType;
@@ -57,6 +57,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -100,8 +101,7 @@ public class FilteredMapServiceImplTest {
             new ServerInfoAppenderFactory(executor)
     );
 
-    @InjectMocks
-    private FilteredMapService filteredMapService = new FilteredMapServiceImpl();
+    private FilteredMapService filteredMapService;
 
     @Before
     public void init() {
@@ -120,6 +120,7 @@ public class FilteredMapServiceImplTest {
             ServiceType serviceType = registry.findServiceTypeByName(invocation.getArgument(1));
             return new Application(applicationName, serviceType);
         });
+        filteredMapService = new FilteredMapServiceImpl(agentInfoService, traceDao, applicationTraceIndexDao, registry, applicationFactory, Optional.empty(), applicationMapBuilderFactory);
     }
 
     @After
@@ -182,7 +183,7 @@ public class FilteredMapServiceImplTest {
         when(traceDao.selectAllSpans(anyList())).thenReturn(Collections.singletonList(Arrays.asList(rootSpan, appASpan)));
 
         // When
-        ApplicationMap applicationMap = filteredMapService.selectApplicationMapWithScatterData(Collections.emptyList(), originalRange, scanRange, 1, 1, Filter.NONE, 0);
+        ApplicationMap applicationMap = filteredMapService.selectApplicationMapWithScatterData(Collections.emptyList(), originalRange, scanRange, 1, 1, Filter.acceptAllFilter(), 0);
 
         // Then
         Collection<Node> nodes = applicationMap.getNodes();

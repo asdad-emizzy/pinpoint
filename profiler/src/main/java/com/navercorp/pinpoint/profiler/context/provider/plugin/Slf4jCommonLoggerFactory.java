@@ -33,13 +33,13 @@ public class Slf4jCommonLoggerFactory implements CommonLoggerFactory {
     }
 
 
-    private class Sl4jCommonLogger implements CommonLogger {
+    private static class Sl4jCommonLogger implements CommonLogger {
 
         private final Logger logger;
 
         private Sl4jCommonLogger(Logger logger) {
             if (logger == null) {
-                throw new NullPointerException("logger must not be null");
+                throw new NullPointerException("logger");
             }
             this.logger = logger;
         }

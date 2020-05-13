@@ -16,7 +16,8 @@
 
 package com.navercorp.pinpoint.profiler.context.storage;
 
-import com.navercorp.pinpoint.profiler.context.id.TraceRoot;
+import com.navercorp.pinpoint.common.util.Assert;
+import com.navercorp.pinpoint.profiler.context.SpanChunkFactory;
 
 /**
  * @author Woonduk Kang(emeroad)
@@ -26,17 +27,13 @@ public class TraceLogDelegateStorageFactory implements StorageFactory {
     private final StorageFactory delegate;
 
     public TraceLogDelegateStorageFactory(StorageFactory delegate) {
-        if (delegate == null) {
-            throw new NullPointerException("delegate must not be null");
-        }
-        this.delegate = delegate;
+        this.delegate = Assert.requireNonNull(delegate, "delegate");
     }
 
 
     @Override
-    public Storage createStorage(TraceRoot traceRoot) {
-        delegate.createStorage(traceRoot);
-        Storage storage = delegate.createStorage(traceRoot);
+    public Storage createStorage(SpanChunkFactory spanChunkFactory) {
+        Storage storage = delegate.createStorage(spanChunkFactory);
         return new TraceLogDelegateStorage(storage);
     }
 }

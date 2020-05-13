@@ -16,19 +16,17 @@
 
 package com.navercorp.pinpoint.bootstrap;
 
-import java.lang.instrument.Instrumentation;
-import java.net.URL;
-import java.util.List;
-import java.util.Map;
-import java.util.jar.JarFile;
-
 import com.navercorp.pinpoint.ProductInfo;
 import com.navercorp.pinpoint.bootstrap.agentdir.AgentDirBaseClassPathResolver;
 import com.navercorp.pinpoint.bootstrap.agentdir.AgentDirectory;
 import com.navercorp.pinpoint.bootstrap.agentdir.BootDir;
 import com.navercorp.pinpoint.bootstrap.agentdir.ClassPathResolver;
 import com.navercorp.pinpoint.bootstrap.agentdir.JavaAgentPathResolver;
-import com.navercorp.pinpoint.common.util.CodeSourceUtils;
+
+import java.lang.instrument.Instrumentation;
+import java.util.List;
+import java.util.Map;
+import java.util.jar.JarFile;
 
 /**
  * @author emeroad
@@ -40,31 +38,32 @@ public class PinpointBootStrap {
 
     private static final LoadState STATE = new LoadState();
 
-
     public static void premain(String agentArgs, Instrumentation instrumentation) {
-        if (agentArgs == null) {
-            agentArgs = "";
-        }
-        logger.info(ProductInfo.NAME + " agentArgs:" + agentArgs);
-        logger.info("classLoader:" + PinpointBootStrap.class.getClassLoader());
-        logger.info("contextClassLoader:" + Thread.currentThread().getContextClassLoader());
-        if (Object.class.getClassLoader() != PinpointBootStrap.class.getClassLoader()) {
-            final URL location = CodeSourceUtils.getCodeLocation(PinpointBootStrap.class);
-            logger.warn("Invalid pinpoint-bootstrap.jar:" + location);
-            return;
-        }
-
-
         final boolean success = STATE.start();
         if (!success) {
             logger.warn("pinpoint-bootstrap already started. skipping agent loading.");
             return;
         }
-        Map<String, String> agentArgsMap = argsToMap(agentArgs);
 
-        JavaAgentPathResolver javaAgentPathResolver = JavaAgentPathResolver.newJavaAgentPathResolver();
-        String agentPath = javaAgentPathResolver.resolveJavaAgentPath();
+        logger.info(ProductInfo.NAME + " agentArgs:" + agentArgs);
+        logger.info("PinpointBootStrap.ClassLoader:" + PinpointBootStrap.class.getClassLoader());
+        logger.info("ContextClassLoader:" + Thread.currentThread().getContextClassLoader());
+
+        final JavaAgentPathResolver javaAgentPathResolver = JavaAgentPathResolver.newJavaAgentPathResolver();
+        final String agentPath = javaAgentPathResolver.resolveJavaAgentPath();
         logger.info("JavaAgentPath:" + agentPath);
+        if (agentPath == null) {
+            logger.warn("AgentPath not found path:" + agentPath);
+        }
+
+        if (Object.class.getClassLoader() != PinpointBootStrap.class.getClassLoader()) {
+            // TODO bug : location is null
+            logger.warn("Invalid pinpoint-bootstrap.jar:" + agentArgs);
+            return;
+        }
+
+        final Map<String, String> agentArgsMap = argsToMap(agentArgs);
+
         final ClassPathResolver classPathResolver = new AgentDirBaseClassPathResolver(agentPath);
 
         final AgentDirectory agentDirectory = resolveAgentDir(classPathResolver);

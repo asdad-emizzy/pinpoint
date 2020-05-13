@@ -41,20 +41,14 @@ public class ApplicationTimeHistogramBuilder {
 
 
     public ApplicationTimeHistogramBuilder(Application application, Range range) {
-        if (application == null) {
-            throw new NullPointerException("application must not be null");
-        }
-        if (range == null) {
-            throw new NullPointerException("range must not be null");
-        }
-        this.application = application;
-        this.range = range;
+        this.application = Objects.requireNonNull(application, "application");
+        this.range = Objects.requireNonNull(range, "range");
         this.window = new TimeWindow(range, TimeWindowDownSampler.SAMPLER);
     }
 
     public ApplicationTimeHistogram build(List<ResponseTime> responseHistogramList) {
         if (responseHistogramList == null) {
-            throw new NullPointerException("responseHistogramList must not be null");
+            throw new NullPointerException("responseHistogramList");
         }
 
         Map<Long, TimeHistogram> applicationLevelHistogram = new HashMap<>();

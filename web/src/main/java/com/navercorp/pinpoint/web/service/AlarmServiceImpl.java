@@ -18,6 +18,7 @@ package com.navercorp.pinpoint.web.service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,9 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(rollbackFor = {Exception.class})
 public class AlarmServiceImpl implements AlarmService {
 
-    @Autowired
-    AlarmDao alarmDao;
-    
+    private final AlarmDao alarmDao;
+
+    public AlarmServiceImpl(AlarmDao alarmDao) {
+        this.alarmDao = Objects.requireNonNull(alarmDao, "alarmDao");
+    }
+
     @Override
     public String insertRule(Rule rule) {
         return alarmDao.insertRule(rule);
@@ -48,6 +52,7 @@ public class AlarmServiceImpl implements AlarmService {
     @Override
     public void deleteRule(Rule rule) {
         alarmDao.deleteRule(rule);
+        alarmDao.deleteCheckerResult(rule.getRuleId());
     }
 
     @Override
@@ -65,6 +70,7 @@ public class AlarmServiceImpl implements AlarmService {
     @Override
     public void updateRule(Rule rule) {
         alarmDao.updateRule(rule);
+        alarmDao.deleteCheckerResult(rule.getRuleId());
     }
 
     @Override
@@ -75,7 +81,7 @@ public class AlarmServiceImpl implements AlarmService {
         
         if (!CheckerResultList.isEmpty()) {
             for (CheckerResult checkerResult : CheckerResultList) {
-                checkerResults.put(checkerResult.getCheckerName(), checkerResult);
+                checkerResults.put(checkerResult.getRuleId(), checkerResult);
             }
         }
         
@@ -84,14 +90,14 @@ public class AlarmServiceImpl implements AlarmService {
 
     @Override
     public void updateBeforeCheckerResult(CheckerResult beforeCheckerResult, AlarmChecker checker) {
-        alarmDao.deleteCheckerResult(beforeCheckerResult);
+        alarmDao.deleteCheckerResult(beforeCheckerResult.getRuleId());
         
         if (checker.isDetected()) {
             beforeCheckerResult.setDetected(true);
             beforeCheckerResult.increseCount();
             alarmDao.insertCheckerResult(beforeCheckerResult);
         } else {
-            alarmDao.insertCheckerResult(new CheckerResult(checker.getRule().getApplicationId(), checker.getRule().getCheckerName(), false, 0, 1));
+            alarmDao.insertCheckerResult(new CheckerResult(checker.getRule().getRuleId(), checker.getRule().getApplicationId(), checker.getRule().getCheckerName(), false, 0, 1));
         }
         
          

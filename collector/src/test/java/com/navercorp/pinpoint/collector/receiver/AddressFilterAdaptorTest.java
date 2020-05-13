@@ -19,14 +19,14 @@ package com.navercorp.pinpoint.collector.receiver;
 import com.navercorp.pinpoint.collector.receiver.thrift.AddressFilterAdaptor;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
 import com.navercorp.pinpoint.common.server.util.IgnoreAddressFilter;
-import org.apache.hadoop.hbase.shaded.com.google.common.net.InetAddresses;
+import com.google.common.net.InetAddresses;
 import org.jboss.netty.channel.Channel;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
+import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -55,7 +55,7 @@ public class AddressFilterAdaptorTest {
     @Test
     public void accept_reject() {
         String ignoreString = "10.0.0.1";
-        AddressFilter ignoreAddressFilter = new IgnoreAddressFilter(Arrays.asList(ignoreString));
+        AddressFilter ignoreAddressFilter = new IgnoreAddressFilter(Collections.singletonList(ignoreString));
 
         Channel ignoreChannel = mockChannel(ignore);
         AddressFilterAdaptor adaptor = new AddressFilterAdaptor(ignoreAddressFilter);
